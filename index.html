@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Word → Art</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:Georgia,serif;background:#f5f2ec;color:#1a1a1a;display:flex;min-height:100vh;}
+
+#sidebar{width:250px;min-width:250px;background:#eeeae1;border-right:1px solid #d8d3c8;display:flex;flex-direction:column;height:100vh;position:sticky;top:0;}
+#sidebar-header{padding:20px 16px 14px;border-bottom:1px solid #d8d3c8;}
+#sidebar-header .logo{font-size:1.3rem;color:#1a3bbf;letter-spacing:.04em;}
+#sidebar-header p{font-size:11px;color:#888;font-family:sans-serif;margin-top:4px;}
+
+#map-section{flex:1;overflow-y:auto;padding:14px 12px;}
+#map-section h3{font-size:10px;color:#aaa;font-family:sans-serif;font-weight:400;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;}
+#world-map{width:100%;cursor:pointer;}
+#world-map path{fill:#d8d3c8;stroke:#c4bfb4;stroke-width:.4;transition:fill .15s;}
+#world-map path:hover{fill:#b8c8f0;}
+#world-map path.selected{fill:#1a3bbf;}
+#hover-name{font-size:12px;font-family:sans-serif;color:#999;min-height:18px;margin-top:8px;padding:0 2px;}
+#hover-name.has-filter{color:#1a3bbf;font-weight:500;}
+#clear-btn{display:none;width:100%;margin-top:10px;padding:7px;background:none;border:1px solid #c4bfb4;border-radius:6px;color:#888;font-size:12px;font-family:sans-serif;cursor:pointer;transition:all .15s;}
+#clear-btn:hover{border-color:#1a3bbf;color:#1a3bbf;}
+#clear-btn.visible{display:block;}
+
+#main{flex:1;display:flex;flex-direction:column;min-width:0;}
+.top-bar{padding:40px 28px 0;text-align:center;}
+.wordmark{font-size:2.4rem;color:#1a3bbf;letter-spacing:.04em;}
+.subtitle{font-size:13px;color:#888;margin:6px 0 24px;font-family:sans-serif;}
+.search-row{display:flex;justify-content:center;gap:8px;margin-bottom:12px;}
+#wordInput{width:260px;padding:10px 16px;background:#fff;border:1px solid #d0cbc0;border-radius:8px;color:#1a1a1a;font-size:14px;font-family:Georgia,serif;outline:none;transition:border-color .2s;}
+#wordInput:focus{border-color:#1a3bbf;}
+#searchBtn{padding:10px 20px;background:#1a3bbf;color:#fff;border:none;border-radius:8px;font-size:14px;font-family:Georgia,serif;cursor:pointer;}
+#searchBtn:hover{background:#1530a0;}
+.chips{display:flex;justify-content:center;gap:7px;flex-wrap:wrap;}
+.chip{font-size:12px;padding:4px 12px;border-radius:99px;border:1px solid #d0cbc0;color:#888;background:transparent;cursor:pointer;font-family:sans-serif;transition:all .15s;}
+.chip:hover{border-color:#1a3bbf;color:#1a3bbf;}
+
+#source-bar{display:flex;justify-content:center;gap:6px;flex-wrap:wrap;padding:10px 28px 0;min-height:28px;}
+.src-pill{font-size:10px;font-family:sans-serif;padding:2px 9px;border-radius:99px;border:1px solid #d0cbc0;color:#bbb;}
+.src-pill.active{border-color:#1a3bbf;color:#1a3bbf;background:#eef1fc;}
+
+#status{text-align:center;font-size:12px;color:#aaa;padding:6px 28px 4px;font-family:sans-serif;min-height:26px;}
+#gallery{columns:3 200px;gap:12px;padding:4px 24px 80px;}
+.card{break-inside:avoid;margin-bottom:12px;border-radius:10px;overflow:hidden;border:1px solid #ddd8d0;background:#fff;transition:transform .18s,border-color .18s,box-shadow .18s;cursor:pointer;display:block;color:inherit;text-decoration:none;}
+.card:hover{transform:translateY(-3px);border-color:#b8c8f0;box-shadow:0 4px 16px rgba(26,59,191,.08);}
+.card img{width:100%;display:block;background:#f0ede6;min-height:60px;}
+.cb{padding:10px 12px 12px;}
+.ct{font-size:12px;font-weight:bold;color:#1a1a1a;margin-bottom:3px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.ca{font-size:11px;color:#777;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:sans-serif;}
+.cm{font-size:10px;color:#aaa;font-family:sans-serif;}
+.cs{display:inline-block;margin-top:6px;font-size:10px;padding:2px 7px;border-radius:4px;background:#eeeae1;color:#1a3bbf;font-family:sans-serif;border:1px solid #d8d3c8;}
+.loader{display:flex;justify-content:center;padding:3rem;gap:7px;}
+.dot{width:7px;height:7px;border-radius:50%;background:#ccc;animation:pulse 1.2s ease-in-out infinite;}
+.dot:nth-child(2){animation-delay:.2s;}.dot:nth-child(3){animation-delay:.4s;}
+@keyframes pulse{0%,80%,100%{opacity:.2;transform:scale(.8);}40%{opacity:1;transform:scale(1);}}
+.empty{text-align:center;padding:4rem 1rem;color:#bbb;font-size:.95rem;font-family:sans-serif;line-height:1.7;}
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+  <div id="sidebar-header">
+    <div class="logo">word → art</div>
+    <p>Click a country to filter by culture</p>
+  </div>
+  <div id="map-section">
+    <h3>World map</h3>
+    <svg id="world-map" viewBox="0 0 800 450" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div id="hover-name">Hover a country</div>
+    <button id="clear-btn" onclick="clearFilter()">✕ Clear country filter</button>
+  </div>
+</div>
+
+<div id="main">
+  <div class="top-bar">
+    <div class="wordmark">word → art</div>
+    <p class="subtitle">Enter a word. See how cultures across history visualized it.</p>
+    <div class="search-row">
+      <input type="text" id="wordInput" placeholder="lion, grief, harvest, fire…"/>
+      <button id="searchBtn">Explore</button>
+    </div>
+    <div class="chips">
+      <button class="chip" onclick="qs('water')">water</button>
+      <button class="chip" onclick="qs('love')">love</button>
+      <button class="chip" onclick="qs('death')">death</button>
+      <button class="chip" onclick="qs('sun')">sun</button>
+      <button class="chip" onclick="qs('war')">war</button>
+      <button class="chip" onclick="qs('woman')">woman</button>
+      <button class="chip" onclick="qs('horse')">horse</button>
+      <button class="chip" onclick="qs('flower')">flower</button>
+    </div>
+  </div>
+  <div id="source-bar"></div>
+  <div id="status"></div>
+  <div id="gallery"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<script>
+const G = document.getElementById('gallery');
+const ST = document.getElementById('status');
+const WI = document.getElementById('wordInput');
+const HN = document.getElementById('hover-name');
+const CB = document.getElementById('clear-btn');
+const SB = document.getElementById('source-bar');
+
+let activeLabel = null;
+let activeTerm = null;
+
+// ── COUNTRY DATA ──────────────────────────────────────────────────────────────
+const CN = {
+  4:'Afghanistan',8:'Albania',12:'Algeria',24:'Angola',32:'Argentina',36:'Australia',
+  40:'Austria',50:'Bangladesh',56:'Belgium',64:'Bhutan',68:'Bolivia',76:'Brazil',
+  100:'Bulgaria',116:'Cambodia',120:'Cameroon',124:'Canada',144:'Sri Lanka',
+  152:'Chile',156:'China',170:'Colombia',188:'Costa Rica',191:'Croatia',
+  192:'Cuba',196:'Cyprus',203:'Czech Republic',208:'Denmark',218:'Ecuador',
+  818:'Egypt',231:'Ethiopia',246:'Finland',250:'France',276:'Germany',
+  288:'Ghana',300:'Greece',320:'Guatemala',332:'Haiti',340:'Honduras',
+  348:'Hungary',356:'India',360:'Indonesia',364:'Iran',368:'Iraq',
+  372:'Ireland',376:'Israel',380:'Italy',388:'Jamaica',392:'Japan',
+  400:'Jordan',398:'Kazakhstan',404:'Kenya',410:'South Korea',422:'Lebanon',
+  434:'Libya',484:'Mexico',504:'Morocco',508:'Mozambique',516:'Namibia',
+  524:'Nepal',528:'Netherlands',554:'New Zealand',566:'Nigeria',578:'Norway',
+  586:'Pakistan',604:'Peru',608:'Philippines',616:'Poland',620:'Portugal',
+  643:'Russia',646:'Rwanda',682:'Saudi Arabia',686:'Senegal',
+  706:'Somalia',710:'South Africa',724:'Spain',729:'Sudan',752:'Sweden',
+  756:'Switzerland',760:'Syria',764:'Thailand',788:'Tunisia',792:'Turkey',
+  800:'Uganda',804:'Ukraine',826:'United Kingdom',840:'United States of America',
+  858:'Uruguay',862:'Venezuela',704:'Vietnam',887:'Yemen',716:'Zimbabwe',
+  496:'Mongolia',104:'Myanmar',466:'Mali',
+};
+
+const CT = {
+  'China':'Chinese','Japan':'Japanese','South Korea':'Korean','India':'Indian',
+  'Egypt':'Egyptian','Greece':'Greek','Italy':'Roman Italian','France':'French',
+  'Germany':'German','Spain':'Spanish','Netherlands':'Dutch Flemish',
+  'United Kingdom':'British English','Russia':'Russian',
+  'United States of America':'American','Mexico':'Mexican pre-Columbian',
+  'Peru':'Andean Inca','Brazil':'Brazilian','Iran':'Persian Iranian',
+  'Turkey':'Ottoman Turkish','Iraq':'Mesopotamian Assyrian','Nigeria':'Yoruba Nigerian',
+  'Ethiopia':'Ethiopian','Ghana':'Ghanaian Akan','Mali':'Malian',
+  'Indonesia':'Indonesian','Thailand':'Thai','Cambodia':'Khmer Cambodian',
+  'Vietnam':'Vietnamese','Australia':'Aboriginal Australian','New Zealand':'Maori',
+  'Pakistan':'Mughal Pakistani','Afghanistan':'Gandhara Afghan',
+  'Syria':'Syrian ancient','Lebanon':'Phoenician Lebanese',
+  'Israel':'Jewish ancient','Saudi Arabia':'Islamic Arabian',
+  'Morocco':'Moroccan Islamic','Sudan':'Nubian Sudanese',
+  'South Africa':'South African','Argentina':'Argentine',
+  'Colombia':'Colombian pre-Columbian','Guatemala':'Maya Guatemalan',
+  'Portugal':'Portuguese','Belgium':'Flemish Belgian','Austria':'Austrian Habsburg',
+  'Poland':'Polish','Sweden':'Norse Swedish','Norway':'Norse Norwegian',
+  'Denmark':'Viking Danish','Mongolia':'Mongolian','Nepal':'Nepalese Himalayan',
+  'Sri Lanka':'Buddhist Sri Lankan',
+};
+
+// ── MAP ───────────────────────────────────────────────────────────────────────
+function applyFilter(label, term) {
+  activeLabel = label; activeTerm = term;
+  HN.textContent = label; HN.classList.add('has-filter');
+  CB.classList.add('visible');
+  const w = WI.value.trim(); if (w) search(w);
+}
+
+function clearFilter() {
+  activeLabel = null; activeTerm = null;
+  HN.textContent = 'Hover a country'; HN.classList.remove('has-filter');
+  CB.classList.remove('visible');
+  document.querySelectorAll('#world-map path').forEach(p => { p.classList.remove('selected'); p.style.fill = ''; });
+  const w = WI.value.trim(); if (w) search(w);
+}
+
+const mapSvg = d3.select('#world-map');
+const proj = d3.geoNaturalEarth1().scale(130).translate([400, 235]);
+const pathGen = d3.geoPath(proj);
+
+d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json').then(world => {
+  const features = topojson.feature(world, world.objects.countries).features;
+  mapSvg.selectAll('path').data(features).join('path').attr('d', pathGen)
+    .on('mouseenter', function(event, d) {
+      const name = CN[+d.id];
+      if (!this.classList.contains('selected')) this.style.fill = CT[name] ? '#b8c8f0' : '#ccc';
+      if (name) { HN.textContent = CT[name] ? name : `${name} (no filter)`; HN.classList.toggle('has-filter', !!activeLabel); }
+    })
+    .on('mouseleave', function(event, d) {
+      if (!this.classList.contains('selected')) this.style.fill = '';
+      HN.textContent = activeLabel || 'Hover a country'; HN.classList.toggle('has-filter', !!activeLabel);
+    })
+    .on('click', function(event, d) {
+      const name = CN[+d.id]; if (!name || !CT[name]) return;
+      document.querySelectorAll('#world-map path').forEach(p => { p.classList.remove('selected'); p.style.fill = ''; });
+      this.classList.add('selected'); this.style.fill = '';
+      applyFilter(name, CT[name]);
+    })
+    .append('title').text(d => CN[+d.id] || '');
+});
+
+// ── SEARCH ────────────────────────────────────────────────────────────────────
+document.getElementById('searchBtn').addEventListener('click', () => { const w = WI.value.trim(); if (w) search(w); });
+WI.addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('searchBtn').click(); });
+function qs(w) { WI.value = w; search(w); }
+
+const ALL_SOURCES = ['The Met','Art Inst. Chicago','Cleveland Museum','V&A','Harvard Art','Rijksmuseum','Europeana','Smithsonian'];
+
+function renderSourceBar(active) {
+  SB.innerHTML = ALL_SOURCES.map(s =>
+    `<span class="src-pill ${active.has(s) ? 'active' : ''}">${s}</span>`
+  ).join('');
+}
+
+async function search(word) {
+  G.innerHTML = '<div class="loader"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
+  SB.innerHTML = '';
+  const note = activeLabel ? ` — ${activeLabel}` : '';
+  ST.textContent = `Searching collections${note}…`;
+  const q = activeTerm ? `${word} ${activeTerm}` : word;
+
+  const results = await Promise.allSettled([
+    searchMet(q), searchChicago(q), searchCleveland(q), searchVA(q),
+    searchHarvard(q), searchRijks(q), searchEuropeana(q), searchSmithsonian(q),
+  ]);
+
+  let arts = results.filter(r => r.status === 'fulfilled').flatMap(r => r.value).filter(a => a.image);
+  arts = shuffle(arts);
+  G.innerHTML = '';
+
+  const sources = new Set(arts.map(a => a.source));
+  renderSourceBar(sources);
+
+  if (!arts.length) {
+    ST.textContent = '';
+    G.innerHTML = `<div class="empty">No artworks found for "<em>${word}</em>"${note}.<br>Try a different word or clear the country filter.</div>`;
+    return;
+  }
+  ST.textContent = `${arts.length} works found for "${word}"${note} · ${sources.size} collection${sources.size > 1 ? 's' : ''}`;
+  arts.forEach(a => G.appendChild(makeCard(a)));
+}
+
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i],a[j]]=[a[j],a[i]]; }
+  return a;
+}
+
+function makeCard(art) {
+  const el = document.createElement('a');
+  el.className = 'card'; el.href = art.url || '#'; el.target = '_blank'; el.rel = 'noopener noreferrer';
+  el.innerHTML = `<img src="${art.image}" alt="" loading="lazy" onerror="this.closest('.card').remove()"/>
+  <div class="cb"><div class="ct">${art.title||'Untitled'}</div><div class="ca">${art.artist||'Unknown artist'}</div><div class="cm">${[art.date,art.culture].filter(Boolean).join(' · ')}</div><span class="cs">${art.source}</span></div>`;
+  return el;
+}
+
+// No-key APIs — call directly (no CORS issues on Vercel)
+async function searchMet(q) {
+  try {
+    const s = await fetch(`https://collectionapi.metmuseum.org/public/collection/v1/search?hasImages=true&q=${encodeURIComponent(q)}`).then(r=>r.json());
+    if (!s.objectIDs) return [];
+    const det = await Promise.all(s.objectIDs.slice(0,15).map(id=>fetch(`https://collectionapi.metmuseum.org/public/collection/v1/objects/${id}`).then(r=>r.json()).catch(()=>null)));
+    return det.filter(Boolean).map(o=>({title:o.title,artist:o.artistDisplayName,date:o.objectDate,culture:o.culture,image:o.primaryImageSmall,source:'The Met',url:o.objectURL})).filter(a=>a.image);
+  } catch{return[];}
+}
+
+async function searchChicago(q) {
+  try {
+    const d = await fetch(`https://api.artic.edu/api/v1/artworks/search?q=${encodeURIComponent(q)}&limit=15&fields=id,title,artist_display,date_display,image_id,place_of_origin`).then(r=>r.json());
+    if (!d.data) return [];
+    return d.data.map(o=>({title:o.title,artist:o.artist_display,date:o.date_display,culture:o.place_of_origin,image:o.image_id?`https://www.artic.edu/iiif/2/${o.image_id}/full/400,/0/default.jpg`:null,source:'Art Inst. Chicago',url:`https://www.artic.edu/artworks/${o.id}`})).filter(a=>a.image);
+  } catch{return[];}
+}
+
+async function searchCleveland(q) {
+  try {
+    const d = await fetch(`https://openaccess-api.clevelandart.org/api/artworks?q=${encodeURIComponent(q)}&has_image=1&limit=15`).then(r=>r.json());
+    if (!d.data) return [];
+    return d.data.map(o=>({title:o.title,artist:o.creators?.[0]?.description,date:o.creation_date,culture:o.culture?.join(', '),image:o.images?.web?.url,source:'Cleveland Museum',url:o.url})).filter(a=>a.image);
+  } catch{return[];}
+}
+
+async function searchVA(q) {
+  try {
+    const d = await fetch(`https://api.vam.ac.uk/v2/objects/search?q=${encodeURIComponent(q)}&images_exist=true&page_size=15`).then(r=>r.json());
+    if (!d.records) return [];
+    return d.records.map(o=>({title:o.fields?.object||o.fields?.title||'Untitled',artist:o.fields?.artist||'',date:o.fields?.date_text||'',culture:o.fields?.place||'',image:o.fields?.primary_image_id?`https://framemark.vam.ac.uk/collections/${o.fields.primary_image_id}/full/400,/0/default.jpg`:null,source:'V&A',url:`https://collections.vam.ac.uk/item/${o.fields?.systemNumber||''}`})).filter(a=>a.image);
+  } catch{return[];}
+}
+
+// Keyed APIs — call our own /api/ routes (keys stay on server)
+async function searchHarvard(q) {
+  try {
+    const d = await fetch(`/api/harvard?q=${encodeURIComponent(q)}`).then(r=>r.json());
+    if (!d.records) return [];
+    return d.records.map(o=>({title:o.title,artist:o.people?.[0]?.displayname||'',date:o.dated||'',culture:o.culture||'',image:o.primaryimageurl,source:'Harvard Art',url:o.url})).filter(a=>a.image);
+  } catch{return[];}
+}
+
+async function searchRijks(q) {
+  try {
+    const d = await fetch(`/api/rijks?q=${encodeURIComponent(q)}`).then(r=>r.json());
+    if (!d.artObjects) return [];
+    return d.artObjects.map(o=>({title:o.title,artist:o.principalOrFirstMaker||'',date:o.dating?.presentingDate||'',culture:'',image:o.webImage?.url,source:'Rijksmuseum',url:o.links?.web})).filter(a=>a.image);
+  } catch{return[];}
+}
+
+async function searchEuropeana(q) {
+  try {
+    const d = await fetch(`/api/europeana?q=${encodeURIComponent(q)}`).then(r=>r.json());
+    if (!d.items) return [];
+    return d.items.map(o=>({title:Array.isArray(o.title)?o.title[0]:o.title||'Untitled',artist:Array.isArray(o.dcCreator)?o.dcCreator[0]:'',date:o.year?.[0]||'',culture:o.dataProvider?.[0]||'',image:o.edmPreview?.[0],source:'Europeana',url:o.guid})).filter(a=>a.image);
+  } catch{return[];}
+}
+
+async function searchSmithsonian(q) {
+  try {
+    const d = await fetch(`/api/smithsonian?q=${encodeURIComponent(q)}`).then(r=>r.json());
+    if (!d.response?.rows) return [];
+    return d.response.rows.map(o=>({title:o.title,artist:o.content?.freetext?.name?.[0]?.content||'',date:o.content?.freetext?.date?.[0]?.content||'',culture:o.content?.freetext?.place?.[0]?.content||'',image:o.content?.descriptiveNonRepeating?.online_media?.media?.[0]?.content,source:'Smithsonian',url:o.content?.descriptiveNonRepeating?.record_link})).filter(a=>a.image);
+  } catch{return[];}
+}
+</script>
+</body>
+</html>
