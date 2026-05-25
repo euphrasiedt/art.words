@@ -143,8 +143,7 @@ const CT = {
   'Turkey':'Ottoman Turkish','Iraq':'Mesopotamian Assyrian','Nigeria':'Yoruba Nigerian',
   'Ethiopia':'Ethiopian','Ghana':'Ghanaian Akan','Mali':'Malian',
   'Indonesia':'Indonesian','Thailand':'Thai','Cambodia':'Khmer Cambodian',
-  'Vietnam':'Vietnamese','Australia':'Aboriginal Australian',
-  'New Zealand':'Maori Pacific',
+  'Vietnam':'Vietnamese','Australia':'Aboriginal Australian','New Zealand':'Maori',
   'Pakistan':'Mughal Pakistani','Afghanistan':'Gandhara Afghan',
   'Syria':'Syrian ancient','Lebanon':'Phoenician Lebanese',
   'Israel':'Jewish ancient','Saudi Arabia':'Islamic Arabian',
@@ -201,7 +200,7 @@ document.getElementById('searchBtn').addEventListener('click', () => { const w =
 WI.addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('searchBtn').click(); });
 function qs(w) { WI.value = w; search(w); }
 
-const ALL_SOURCES = ['The Met','Art Inst. Chicago','Cleveland Museum','V&A','Harvard Art','Rijksmuseum','Europeana','Smithsonian','Te Papa','DPLA'];
+const ALL_SOURCES = ['The Met','Art Inst. Chicago','Cleveland Museum','V&A','Harvard Art','Rijksmuseum','Europeana','Smithsonian'];
 
 function renderSourceBar(active) {
   SB.innerHTML = ALL_SOURCES.map(s =>
@@ -219,7 +218,6 @@ async function search(word) {
   const results = await Promise.allSettled([
     searchMet(q), searchChicago(q), searchCleveland(q), searchVA(q),
     searchHarvard(q), searchRijks(q), searchEuropeana(q), searchSmithsonian(q),
-    searchTePapa(q), searchDPLA(q),
   ]);
 
   let arts = results.filter(r => r.status === 'fulfilled').flatMap(r => r.value).filter(a => a.image);
@@ -279,9 +277,20 @@ async function searchCleveland(q) {
 async function searchVA(q) {
   try {
     const d = await fetch(`https://api.vam.ac.uk/v2/objects/search?q=${encodeURIComponent(q)}&images_exist=true&page_size=15`).then(r=>r.json());
-    if (!d.records) return [];
-    return d.records.map(o=>({title:o.fields?.object||o.fields?.title||'Untitled',artist:o.fields?.artist||'',date:o.fields?.date_text||'',culture:o.fields?.place||'',image:o.fields?.primary_image_id?`https://framemark.vam.ac.uk/collections/${o.fields.primary_image_id}/full/400,/0/default.jpg`:null,source:'V&A',url:`https://collections.vam.ac.uk/item/${o.fields?.systemNumber||''}`})).filter(a=>a.image);
-  } catch{return[];}
+    const records = d._embedded?.records || d.records || [];
+    return records.map(o => {
+      const imageId = o._primaryImageId || o.fields?.primary_image_id;
+      return {
+        title: o._primaryTitle || o.objectType || 'Untitled',
+        artist: o._primaryMaker?.name || '',
+        date: o._primaryDate || '',
+        culture: o._primaryPlace || '',
+        image: imageId ? `https://framemark.vam.ac.uk/collections/${imageId}/full/400,/0/default.jpg` : null,
+        source: 'V&A',
+        url: `https://collections.vam.ac.uk/item/${o.systemNumber || ''}`
+      };
+    }).filter(a => a.image);
+  } catch { return []; }
 }
 
 async function searchHarvard(q) {
@@ -296,8 +305,16 @@ async function searchRijks(q) {
   try {
     const d = await fetch(`/api/rijks?q=${encodeURIComponent(q)}`).then(r=>r.json());
     if (!d.artObjects) return [];
-    return d.artObjects.map(o=>({title:o.title,artist:o.principalOrFirstMaker||'',date:o.dating?.presentingDate||'',culture:'',image:o.webImage?.url,source:'Rijksmuseum',url:o.links?.web})).filter(a=>a.image);
-  } catch{return[];}
+    return d.artObjects.map(o => ({
+      title: o.title,
+      artist: o.principalOrFirstMaker || '',
+      date: o.dating?.presentingDate || '',
+      culture: '',
+      image: o.webImage?.url ? o.webImage.url.replace(/=s\d+$/, '=s400') : null,
+      source: 'Rijksmuseum',
+      url: o.links?.web
+    })).filter(a => a.image);
+  } catch { return []; }
 }
 
 async function searchEuropeana(q) {
@@ -312,42 +329,22 @@ async function searchSmithsonian(q) {
   try {
     const d = await fetch(`/api/smithsonian?q=${encodeURIComponent(q)}`).then(r=>r.json());
     if (!d.response?.rows) return [];
-    return d.response.rows.map(o=>({title:o.title,artist:o.content?.freetext?.name?.[0]?.content||'',date:o.content?.freetext?.date?.[0]?.content||'',culture:o.content?.freetext?.place?.[0]?.content||'',image:o.content?.descriptiveNonRepeating?.online_media?.media?.[0]?.content,source:'Smithsonian',url:o.content?.descriptiveNonRepeating?.record_link})).filter(a=>a.image);
-  } catch{return[];}
-}
-
-async function searchTePapa(q) {
-  try {
-    const d = await fetch(`/api/tepapa?q=${encodeURIComponent(q)}`).then(r=>r.json());
-    if (!d.results) return [];
-    return d.results
-      .filter(o => o.hasRepresentation?.length)
-      .map(o => ({
-        title: o.title || 'Untitled',
-        artist: o.production?.[0]?.contributor?.[0]?.title || '',
-        date: o.production?.[0]?.period || o.date?.value || '',
-        culture: o.collection || '',
-        image: o.hasRepresentation?.[0]?.previewUrl,
-        source: 'Te Papa',
-        url: `https://collections.tepapa.govt.nz/object/${o.id}`
-      }))
-      .filter(a => a.image);
-  } catch { return []; }
-}
-
-async function searchDPLA(q) {
-  try {
-    const d = await fetch(`/api/dpla?q=${encodeURIComponent(q)}`).then(r=>r.json());
-    if (!d.docs) return [];
-    return d.docs.map(o => ({
-      title: Array.isArray(o.sourceResource?.title) ? o.sourceResource.title[0] : o.sourceResource?.title || 'Untitled',
-      artist: Array.isArray(o.sourceResource?.creator) ? o.sourceResource.creator[0] : o.sourceResource?.creator || '',
-      date: o.sourceResource?.date?.[0]?.displayDate || o.sourceResource?.date?.displayDate || '',
-      culture: o.dataProvider || '',
-      image: o.object || o.thumbnail?.['@id'],
-      source: 'DPLA',
-      url: o.isShownAt
-    })).filter(a => a.image);
+    return d.response.rows.map(o => {
+      const nr = o.content?.descriptiveNonRepeating;
+      const media = nr?.online_media?.media?.[0];
+      const inlineImg = media?.content;
+      const idsId = media?.idsId;
+      const image = inlineImg || (idsId ? `https://ids.si.edu/ids/deliveryService?id=${idsId}&max=400` : null);
+      return {
+        title: o.title,
+        artist: o.content?.freetext?.name?.[0]?.content || '',
+        date: o.content?.freetext?.date?.[0]?.content || '',
+        culture: o.content?.freetext?.place?.[0]?.content || '',
+        image,
+        source: 'Smithsonian',
+        url: nr?.record_link || nr?.guid
+      };
+    }).filter(a => a.image);
   } catch { return []; }
 }
 </script>
