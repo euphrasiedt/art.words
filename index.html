@@ -200,7 +200,7 @@ document.getElementById('searchBtn').addEventListener('click', () => { const w =
 WI.addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('searchBtn').click(); });
 function qs(w) { WI.value = w; search(w); }
 
-const ALL_SOURCES = ['The Met','Art Inst. Chicago','Cleveland Museum','V&A','Harvard Art','Rijksmuseum','Europeana','Smithsonian'];
+const ALL_SOURCES = ['The Met','Art Inst. Chicago','Cleveland Museum','V&A','Harvard Art','Europeana','Wikimedia Commons','Cooper Hewitt','Auckland Museum'];
 
 function renderSourceBar(active) {
   SB.innerHTML = ALL_SOURCES.map(s =>
@@ -216,8 +216,15 @@ async function search(word) {
   const q = activeTerm ? `${word} ${activeTerm}` : word;
 
   const results = await Promise.allSettled([
-    searchMet(q), searchChicago(q), searchCleveland(q), searchVA(q),
-    searchHarvard(q), searchRijks(q), searchEuropeana(q), searchSmithsonian(q),
+    searchMet(q),
+    searchChicago(q),
+    searchCleveland(q),
+    searchVA(q),
+    searchHarvard(q),
+    searchEuropeana(q),
+    searchWikimedia(q),
+    searchCooperHewitt(q),
+    searchAuckland(q),
   ]);
 
   let arts = results.filter(r => r.status === 'fulfilled').flatMap(r => r.value).filter(a => a.image);
@@ -249,18 +256,21 @@ function makeCard(art) {
   return el;
 }
 
+// ── NO-KEY DIRECT APIs ────────────────────────────────────────────────────────
+
 async function searchMet(q) {
   try {
     const s = await fetch(`https://collectionapi.metmuseum.org/public/collection/v1/search?hasImages=true&q=${encodeURIComponent(q)}`).then(r=>r.json());
     if (!s.objectIDs) return [];
-    const det = await Promise.all(s.objectIDs.slice(0,15).map(id=>fetch(`https://collectionapi.metmuseum.org/public/collection/v1/objects/${id}`).then(r=>r.json()).catch(()=>null)));
+    const ids = s.objectIDs.slice(0, 20);
+    const det = await Promise.all(ids.map(id=>fetch(`https://collectionapi.metmuseum.org/public/collection/v1/objects/${id}`).then(r=>r.json()).catch(()=>null)));
     return det.filter(Boolean).map(o=>({title:o.title,artist:o.artistDisplayName,date:o.objectDate,culture:o.culture,image:o.primaryImageSmall,source:'The Met',url:o.objectURL})).filter(a=>a.image);
   } catch{return[];}
 }
 
 async function searchChicago(q) {
   try {
-    const d = await fetch(`https://api.artic.edu/api/v1/artworks/search?q=${encodeURIComponent(q)}&limit=15&fields=id,title,artist_display,date_display,image_id,place_of_origin`).then(r=>r.json());
+    const d = await fetch(`https://api.artic.edu/api/v1/artworks/search?q=${encodeURIComponent(q)}&limit=20&fields=id,title,artist_display,date_display,image_id,place_of_origin`).then(r=>r.json());
     if (!d.data) return [];
     return d.data.map(o=>({title:o.title,artist:o.artist_display,date:o.date_display,culture:o.place_of_origin,image:o.image_id?`https://www.artic.edu/iiif/2/${o.image_id}/full/400,/0/default.jpg`:null,source:'Art Inst. Chicago',url:`https://www.artic.edu/artworks/${o.id}`})).filter(a=>a.image);
   } catch{return[];}
@@ -268,17 +278,15 @@ async function searchChicago(q) {
 
 async function searchCleveland(q) {
   try {
-    const d = await fetch(`https://openaccess-api.clevelandart.org/api/artworks?q=${encodeURIComponent(q)}&has_image=1&limit=15`).then(r=>r.json());
+    const d = await fetch(`https://openaccess-api.clevelandart.org/api/artworks?q=${encodeURIComponent(q)}&has_image=1&limit=20`).then(r=>r.json());
     if (!d.data) return [];
     return d.data.map(o=>({title:o.title,artist:o.creators?.[0]?.description,date:o.creation_date,culture:o.culture?.join(', '),image:o.images?.web?.url,source:'Cleveland Museum',url:o.url})).filter(a=>a.image);
   } catch{return[];}
 }
 
-// FIXED: image_restrict=1 replaces images_exist=true (which caused 422).
-// Image URL built from _images._iiif_image_base_url which is always present when an image exists.
 async function searchVA(q) {
   try {
-    const d = await fetch(`https://api.vam.ac.uk/v2/objects/search?q=${encodeURIComponent(q)}&image_restrict=1&page_size=15`).then(r=>r.json());
+    const d = await fetch(`https://api.vam.ac.uk/v2/objects/search?q=${encodeURIComponent(q)}&image_restrict=1&page_size=20`).then(r=>r.json());
     const records = d.records || [];
     return records.map(o => {
       const base = o._images?._iiif_image_base_url;
@@ -295,29 +303,43 @@ async function searchVA(q) {
   } catch { return []; }
 }
 
+// Wikimedia Commons — searches art/painting category, no key, open CORS
+async function searchWikimedia(q) {
+  try {
+    const searchQ = `${q} painting artwork`;
+    const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(searchQ)}&gsrnamespace=6&gsrlimit=30&prop=imageinfo&iiprop=url|extmetadata&iiurlwidth=400&iiextmetadatafilter=Artist|DateTimeOriginal|ObjectName|LicenseShortName&format=json&origin=*`;
+    const d = await fetch(url).then(r=>r.json());
+    if (!d.query?.pages) return [];
+    return Object.values(d.query.pages).map(p => {
+      const ii = p.imageinfo?.[0];
+      if (!ii?.url) return null;
+      // skip non-image file types
+      if (!ii.url.match(/\.(jpg|jpeg|png|gif|webp)/i)) return null;
+      const meta = ii.extmetadata || {};
+      const artist = meta.Artist?.value?.replace(/<[^>]+>/g, '') || '';
+      const date = meta.DateTimeOriginal?.value?.replace(/<[^>]+>/g, '') || '';
+      const title = meta.ObjectName?.value || p.title?.replace('File:', '').replace(/_/g, ' ') || 'Untitled';
+      return {
+        title,
+        artist,
+        date,
+        culture: '',
+        image: ii.thumburl || ii.url,
+        source: 'Wikimedia Commons',
+        url: `https://commons.wikimedia.org/wiki/${encodeURIComponent(p.title)}`
+      };
+    }).filter(Boolean);
+  } catch { return []; }
+}
+
+// ── KEYED APIs (proxied through /api/) ────────────────────────────────────────
+
 async function searchHarvard(q) {
   try {
     const d = await fetch(`/api/harvard?q=${encodeURIComponent(q)}`).then(r=>r.json());
     if (!d.records) return [];
     return d.records.map(o=>({title:o.title,artist:o.people?.[0]?.displayname||'',date:o.dated||'',culture:o.culture||'',image:o.primaryimageurl,source:'Harvard Art',url:o.url})).filter(a=>a.image);
   } catch{return[];}
-}
-
-// FIXED: normalise webImage URL (strip Google sizing param that sometimes returns 403)
-async function searchRijks(q) {
-  try {
-    const d = await fetch(`/api/rijks?q=${encodeURIComponent(q)}`).then(r=>r.json());
-    if (!d.artObjects) return [];
-    return d.artObjects.map(o => ({
-      title: o.title,
-      artist: o.principalOrFirstMaker || '',
-      date: o.dating?.presentingDate || '',
-      culture: '',
-      image: o.webImage?.url ? o.webImage.url.replace(/=s\d+$/, '=s400') : null,
-      source: 'Rijksmuseum',
-      url: o.links?.web
-    })).filter(a => a.image);
-  } catch { return []; }
 }
 
 async function searchEuropeana(q) {
@@ -328,26 +350,37 @@ async function searchEuropeana(q) {
   } catch{return[];}
 }
 
-// FIXED: use media[].thumbnail which is always present; fall back to idsId-based URL
-async function searchSmithsonian(q) {
+async function searchCooperHewitt(q) {
   try {
-    const d = await fetch(`/api/smithsonian?q=${encodeURIComponent(q)}`).then(r=>r.json());
-    if (!d.response?.rows) return [];
-    return d.response.rows.map(o => {
-      const nr = o.content?.descriptiveNonRepeating;
-      const media = nr?.online_media?.media?.[0];
-      const image = media?.thumbnail
-        || (media?.idsId ? `https://ids.si.edu/ids/deliveryService?id=${media.idsId}&max=400` : null)
-        || media?.content
-        || null;
+    const d = await fetch(`/api/cooperhewitt?q=${encodeURIComponent(q)}`).then(r=>r.json());
+    if (!d.objects) return [];
+    return d.objects.map(o => ({
+      title: o.title || 'Untitled',
+      artist: o.participants?.find(p => p.role_name === 'Designer' || p.role_name === 'Maker')?.person_name || '',
+      date: o.date || '',
+      culture: o.culture || o.country || '',
+      image: o.images?.[0]?.b?.url || o.images?.[0]?.z?.url || null,
+      source: 'Cooper Hewitt',
+      url: o.url || `https://collection.cooperhewitt.org/objects/${o.id}`
+    })).filter(a => a.image);
+  } catch { return []; }
+}
+
+async function searchAuckland(q) {
+  try {
+    const d = await fetch(`/api/aucklandmuseum?q=${encodeURIComponent(q)}`).then(r=>r.json());
+    const hits = d.hits?.hits || [];
+    return hits.map(h => {
+      const s = h._source || {};
+      const img = s.primaryRepresentation || s.previewUrl || null;
       return {
-        title: o.title,
-        artist: o.content?.freetext?.name?.[0]?.content || '',
-        date: o.content?.freetext?.date?.[0]?.content || '',
-        culture: o.content?.freetext?.place?.[0]?.content || '',
-        image,
-        source: 'Smithsonian',
-        url: nr?.record_link || nr?.guid
+        title: s.dc_title?.[0] || s.title || 'Untitled',
+        artist: s.dc_creator?.[0] || '',
+        date: s.dc_date?.[0] || '',
+        culture: s.dc_subject?.[0] || s.dc_place?.[0] || '',
+        image: img ? (img.startsWith('http') ? img : `https://www.aucklandmuseum.com${img}`) : null,
+        source: 'Auckland Museum',
+        url: s.id ? `https://www.aucklandmuseum.com/collections/items/item/${s.id}` : ''
       };
     }).filter(a => a.image);
   } catch { return []; }
