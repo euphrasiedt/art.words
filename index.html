@@ -353,55 +353,13 @@ async function searchDPLA(q) {
 
 async function searchWikidata(q) {
   try {
-    const safeQ = q.replace(/"/g, '').replace(/\\/g, '');
-    const sparql = `
-      SELECT DISTINCT ?item ?title ?image ?creator ?date ?collection ?itemUrl WHERE {
-        ?item wdt:P31/wdt:P279* ?type .
-        VALUES ?type {
-          wd:Q3305213
-          wd:Q860861
-          wd:Q219423
-          wd:Q184741
-          wd:Q20010573
-          wd:Q11835431
-          wd:Q570116
-          wd:Q429785
-          wd:Q46686
-          wd:Q210272
-          wd:Q245117
-          wd:Q2066186
-        }
-        ?item rdfs:label ?title .
-        FILTER(LANG(?title) = "en")
-        FILTER(CONTAINS(LCASE(?title), LCASE("${safeQ}")))
-        ?item wdt:P18 ?image .
-        FILTER(STRSTARTS(STR(?image), "http://commons.wikimedia.org/"))
-        OPTIONAL {
-          ?item wdt:P170 ?creatorItem .
-          ?creatorItem rdfs:label ?creator .
-          FILTER(LANG(?creator) = "en")
-        }
-        OPTIONAL {
-          ?item wdt:P571|wdt:P577 ?dateRaw .
-          BIND(SUBSTR(STR(?dateRaw),1,4) AS ?date)
-        }
-        OPTIONAL {
-          ?item wdt:P195 ?collectionItem .
-          ?collectionItem rdfs:label ?collection .
-          FILTER(LANG(?collection) = "en")
-        }
-        BIND(URI(CONCAT("https://www.wikidata.org/wiki/", SUBSTR(STR(?item),32))) AS ?itemUrl)
-      }
-      LIMIT 15
-    `;
-    const url = `https://query.wikidata.org/sparql?query=${encodeURIComponent(sparql)}&format=json`;
-    const d = await fetch(url, {
-      headers: { 'Accept': 'application/sparql-results+json' }
-    }).then(r => r.json());
+    const url = `/api/wikidata?q=${encodeURIComponent(q)}`;
+    const d = await fetch(url).then(r => r.json());
+    
     if (!d.results?.bindings) return [];
     return d.results.bindings.map(o => ({
       title: o.title?.value || 'Untitled',
-      artist: o.creator?.value || '',
+      artist: o.creator?.value || 'Unknown artist',
       date: o.date?.value || '',
       culture: o.collection?.value || '',
       image: o.image?.value,
