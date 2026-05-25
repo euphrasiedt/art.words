@@ -131,14 +131,15 @@ async function searchAuckland(q) {
       const image = o.imageDerivatives?.find(i => i.identifier === 'MEDIUM')?.url
                  || o.imageDerivatives?.[0]?.url
                  || null;
+      const id = o.opacObjectId || o.id;
       return {
-        title: get('object_name') || get('title') || 'Untitled',
-        artist: get('creator') || get('collector') || '',
-        date: get('date_made') || get('date') || '',
-        culture: get('culture') || get('place_collected') || '',
+        title: get('name') || get('object_name') || 'Untitled',
+        artist: get('creator') || '',
+        date: get('date') || '',
+        culture: get('place') || '',
         image,
         source: 'Auckland Museum',
-        url: o.id ? `https://www.aucklandmuseum.com/discover/collections/record/${o.id}` : null
+        url: id ? `https://www.aucklandmuseum.com/discover/collections/record/${id}` : null
       };
     }).filter(a => a.image);
   } catch { return []; }
