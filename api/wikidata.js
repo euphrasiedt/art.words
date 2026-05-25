@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+const crypto = require('crypto');
 
 export default async function handler(req, res) {
   const { q } = req.query;
@@ -52,7 +52,7 @@ export default async function handler(req, res) {
     const url = `https://query.wikidata.org/sparql?query=${encodeURIComponent(sparql)}&format=json`;
     
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000); // 4 second limit
+    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3-second strict speed cutoff
 
     const response = await fetch(url, {
       signal: controller.signal,
@@ -73,26 +73,21 @@ export default async function handler(req, res) {
     if (data.results && data.results.bindings) {
       data.results.bindings = data.results.bindings.map(o => {
         if (o.image && o.image.value) {
-          // 1. Isolate the exact Wikipedia File Name
           const rawUrl = o.image.value;
           const prefix = "http://commons.wikimedia.org/wiki/Special:FilePath/";
           let fileName = rawUrl.replace(prefix, "");
           
-          // Fallback if URL structure varies
           if (fileName.includes("Special:FilePath/")) {
             fileName = fileName.split("Special:FilePath/")[1];
           }
           
-          // Decode URL formatting to get the raw text (e.g., convert '%20' back to spaces)
           fileName = decodeURIComponent(fileName).replace(/ /g, '_');
 
           if (fileName) {
-            // 2. Generate standard Wikimedia MD5 hash paths
             const hash = crypto.createHash('md5').update(fileName).digest('hex');
             const a = hash.charAt(0);
             const ab = hash.substring(0, 2);
             
-            // 3. Build the official direct image asset URL
             o.image.value = `https://upload.wikimedia.org/wikipedia/commons/thumb/${a}/${ab}/${encodeURIComponent(fileName)}/400px-${encodeURIComponent(fileName)}`;
           }
         }
