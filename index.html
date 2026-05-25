@@ -111,7 +111,6 @@ const SB = document.getElementById('source-bar');
 let activeLabel = null;
 let activeTerm = null;
 
-// ── COUNTRY DATA ──────────────────────────────────────────────────────────────
 const CN = {
   4:'Afghanistan',8:'Albania',12:'Algeria',24:'Angola',32:'Argentina',36:'Australia',
   40:'Austria',50:'Bangladesh',56:'Belgium',64:'Bhutan',68:'Bolivia',76:'Brazil',
@@ -144,7 +143,8 @@ const CT = {
   'Turkey':'Ottoman Turkish','Iraq':'Mesopotamian Assyrian','Nigeria':'Yoruba Nigerian',
   'Ethiopia':'Ethiopian','Ghana':'Ghanaian Akan','Mali':'Malian',
   'Indonesia':'Indonesian','Thailand':'Thai','Cambodia':'Khmer Cambodian',
-  'Vietnam':'Vietnamese','Australia':'Aboriginal Australian','New Zealand':'Maori',
+  'Vietnam':'Vietnamese','Australia':'Aboriginal Australian',
+  'New Zealand':'Maori Pacific',
   'Pakistan':'Mughal Pakistani','Afghanistan':'Gandhara Afghan',
   'Syria':'Syrian ancient','Lebanon':'Phoenician Lebanese',
   'Israel':'Jewish ancient','Saudi Arabia':'Islamic Arabian',
@@ -157,7 +157,6 @@ const CT = {
   'Sri Lanka':'Buddhist Sri Lankan',
 };
 
-// ── MAP ───────────────────────────────────────────────────────────────────────
 function applyFilter(label, term) {
   activeLabel = label; activeTerm = term;
   HN.textContent = label; HN.classList.add('has-filter');
@@ -198,12 +197,11 @@ d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json').then(w
     .append('title').text(d => CN[+d.id] || '');
 });
 
-// ── SEARCH ────────────────────────────────────────────────────────────────────
 document.getElementById('searchBtn').addEventListener('click', () => { const w = WI.value.trim(); if (w) search(w); });
 WI.addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('searchBtn').click(); });
 function qs(w) { WI.value = w; search(w); }
 
-const ALL_SOURCES = ['The Met','Art Inst. Chicago','Cleveland Museum','V&A','Harvard Art','Rijksmuseum','Europeana','Smithsonian'];
+const ALL_SOURCES = ['The Met','Art Inst. Chicago','Cleveland Museum','V&A','Harvard Art','Rijksmuseum','Europeana','Smithsonian','Te Papa','DPLA'];
 
 function renderSourceBar(active) {
   SB.innerHTML = ALL_SOURCES.map(s =>
@@ -221,6 +219,7 @@ async function search(word) {
   const results = await Promise.allSettled([
     searchMet(q), searchChicago(q), searchCleveland(q), searchVA(q),
     searchHarvard(q), searchRijks(q), searchEuropeana(q), searchSmithsonian(q),
+    searchTePapa(q), searchDPLA(q),
   ]);
 
   let arts = results.filter(r => r.status === 'fulfilled').flatMap(r => r.value).filter(a => a.image);
@@ -252,7 +251,6 @@ function makeCard(art) {
   return el;
 }
 
-// No-key APIs — call directly (no CORS issues on Vercel)
 async function searchMet(q) {
   try {
     const s = await fetch(`https://collectionapi.metmuseum.org/public/collection/v1/search?hasImages=true&q=${encodeURIComponent(q)}`).then(r=>r.json());
@@ -286,7 +284,6 @@ async function searchVA(q) {
   } catch{return[];}
 }
 
-// Keyed APIs — call our own /api/ routes (keys stay on server)
 async function searchHarvard(q) {
   try {
     const d = await fetch(`/api/harvard?q=${encodeURIComponent(q)}`).then(r=>r.json());
@@ -317,6 +314,41 @@ async function searchSmithsonian(q) {
     if (!d.response?.rows) return [];
     return d.response.rows.map(o=>({title:o.title,artist:o.content?.freetext?.name?.[0]?.content||'',date:o.content?.freetext?.date?.[0]?.content||'',culture:o.content?.freetext?.place?.[0]?.content||'',image:o.content?.descriptiveNonRepeating?.online_media?.media?.[0]?.content,source:'Smithsonian',url:o.content?.descriptiveNonRepeating?.record_link})).filter(a=>a.image);
   } catch{return[];}
+}
+
+async function searchTePapa(q) {
+  try {
+    const d = await fetch(`/api/tepapa?q=${encodeURIComponent(q)}`).then(r=>r.json());
+    if (!d.results) return [];
+    return d.results
+      .filter(o => o.hasRepresentation?.length)
+      .map(o => ({
+        title: o.title || 'Untitled',
+        artist: o.production?.[0]?.contributor?.[0]?.title || '',
+        date: o.production?.[0]?.period || o.date?.value || '',
+        culture: o.collection || '',
+        image: o.hasRepresentation?.[0]?.previewUrl,
+        source: 'Te Papa',
+        url: `https://collections.tepapa.govt.nz/object/${o.id}`
+      }))
+      .filter(a => a.image);
+  } catch { return []; }
+}
+
+async function searchDPLA(q) {
+  try {
+    const d = await fetch(`/api/dpla?q=${encodeURIComponent(q)}`).then(r=>r.json());
+    if (!d.docs) return [];
+    return d.docs.map(o => ({
+      title: Array.isArray(o.sourceResource?.title) ? o.sourceResource.title[0] : o.sourceResource?.title || 'Untitled',
+      artist: Array.isArray(o.sourceResource?.creator) ? o.sourceResource.creator[0] : o.sourceResource?.creator || '',
+      date: o.sourceResource?.date?.[0]?.displayDate || o.sourceResource?.date?.displayDate || '',
+      culture: o.dataProvider || '',
+      image: o.object || o.thumbnail?.['@id'],
+      source: 'DPLA',
+      url: o.isShownAt
+    })).filter(a => a.image);
+  } catch { return []; }
 }
 </script>
 </body>
