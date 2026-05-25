@@ -98,7 +98,52 @@ body{font-family:Georgia,serif;background:#f5f2ec;color:#1a1a1a;display:flex;min
   <div id="gallery"></div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js">
+async function searchWikimedia(q) {
+  try {
+    const url = `https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(q + ' painting artwork')}&srnamespace=6&srlimit=30&srprop=snippet&format=json&origin=*`;
+    const d = await fetch(url).then(r => r.json());
+    if (!d.query?.search) return [];
+    return d.query.search.map(o => {
+      const title = o.title.replace(/^File:/, '').replace(/\.[^.]+$/, '');
+      const file = o.title.replace(/^File:/, '');
+      const encoded = encodeURIComponent(file).replace(/%20/g, '_').replace(/'/g, '%27');
+      return {
+        title,
+        artist: '',
+        date: '',
+        culture: '',
+        image: `https://commons.wikimedia.org/wiki/Special:FilePath/${encoded}?width=400`,
+        source: 'Wikimedia',
+        url: `https://commons.wikimedia.org/wiki/File:${encoded}`
+      };
+    });
+  } catch { return []; }
+}
+
+async function searchAuckland(q) {
+  try {
+    const d = await fetch(`/api/aucklandmuseum?q=${encodeURIComponent(q)}`).then(r => r.json());
+    if (!d.results) return [];
+    return d.results.map(o => {
+      const fields = o.opacObjectFields || [];
+      const get = id => fields.find(f => f.identifier === id)?.opacObjectFields?.[0]?.value || '';
+      const image = o.imageDerivatives?.find(i => i.identifier === 'MEDIUM')?.url
+                 || o.imageDerivatives?.[0]?.url
+                 || null;
+      return {
+        title: get('object_name') || get('title') || 'Untitled',
+        artist: get('creator') || get('collector') || '',
+        date: get('date_made') || get('date') || '',
+        culture: get('culture') || get('place_collected') || '',
+        image,
+        source: 'Auckland Museum',
+        url: o.id ? `https://www.aucklandmuseum.com/discover/collections/record/${o.id}` : null
+      };
+    }).filter(a => a.image);
+  } catch { return []; }
+}
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
 <script>
 const G = document.getElementById('gallery');
@@ -111,6 +156,7 @@ const SB = document.getElementById('source-bar');
 let activeLabel = null;
 let activeTerm = null;
 
+// ── COUNTRY DATA ──────────────────────────────────────────────────────────────
 const CN = {
   4:'Afghanistan',8:'Albania',12:'Algeria',24:'Angola',32:'Argentina',36:'Australia',
   40:'Austria',50:'Bangladesh',56:'Belgium',64:'Bhutan',68:'Bolivia',76:'Brazil',
@@ -156,6 +202,7 @@ const CT = {
   'Sri Lanka':'Buddhist Sri Lankan',
 };
 
+// ── MAP ───────────────────────────────────────────────────────────────────────
 function applyFilter(label, term) {
   activeLabel = label; activeTerm = term;
   HN.textContent = label; HN.classList.add('has-filter');
@@ -196,11 +243,12 @@ d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json').then(w
     .append('title').text(d => CN[+d.id] || '');
 });
 
+// ── SEARCH ────────────────────────────────────────────────────────────────────
 document.getElementById('searchBtn').addEventListener('click', () => { const w = WI.value.trim(); if (w) search(w); });
 WI.addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('searchBtn').click(); });
 function qs(w) { WI.value = w; search(w); }
 
-const ALL_SOURCES = ['The Met','Art Inst. Chicago','Cleveland Museum','V&A','Harvard Art','Europeana','Wikimedia Commons','Cooper Hewitt','Auckland Museum'];
+const ALL_SOURCES = ['The Met','Art Inst. Chicago','Cleveland Museum','V&A','Harvard Art','Europeana','Wikimedia','Auckland Museum'];
 
 function renderSourceBar(active) {
   SB.innerHTML = ALL_SOURCES.map(s =>
@@ -216,15 +264,8 @@ async function search(word) {
   const q = activeTerm ? `${word} ${activeTerm}` : word;
 
   const results = await Promise.allSettled([
-    searchMet(q),
-    searchChicago(q),
-    searchCleveland(q),
-    searchVA(q),
-    searchHarvard(q),
-    searchEuropeana(q),
-    searchWikimedia(q),
-    searchCooperHewitt(q),
-    searchAuckland(q),
+    searchMet(q), searchChicago(q), searchCleveland(q), searchVA(q),
+    searchHarvard(q), searchEuropeana(q), searchWikimedia(q), searchAuckland(q),
   ]);
 
   let arts = results.filter(r => r.status === 'fulfilled').flatMap(r => r.value).filter(a => a.image);
@@ -256,21 +297,19 @@ function makeCard(art) {
   return el;
 }
 
-// ── NO-KEY DIRECT APIs ────────────────────────────────────────────────────────
-
+// No-key APIs — call directly (no CORS issues on Vercel)
 async function searchMet(q) {
   try {
     const s = await fetch(`https://collectionapi.metmuseum.org/public/collection/v1/search?hasImages=true&q=${encodeURIComponent(q)}`).then(r=>r.json());
     if (!s.objectIDs) return [];
-    const ids = s.objectIDs.slice(0, 20);
-    const det = await Promise.all(ids.map(id=>fetch(`https://collectionapi.metmuseum.org/public/collection/v1/objects/${id}`).then(r=>r.json()).catch(()=>null)));
+    const det = await Promise.all(s.objectIDs.slice(0,15).map(id=>fetch(`https://collectionapi.metmuseum.org/public/collection/v1/objects/${id}`).then(r=>r.json()).catch(()=>null)));
     return det.filter(Boolean).map(o=>({title:o.title,artist:o.artistDisplayName,date:o.objectDate,culture:o.culture,image:o.primaryImageSmall,source:'The Met',url:o.objectURL})).filter(a=>a.image);
   } catch{return[];}
 }
 
 async function searchChicago(q) {
   try {
-    const d = await fetch(`https://api.artic.edu/api/v1/artworks/search?q=${encodeURIComponent(q)}&limit=20&fields=id,title,artist_display,date_display,image_id,place_of_origin`).then(r=>r.json());
+    const d = await fetch(`https://api.artic.edu/api/v1/artworks/search?q=${encodeURIComponent(q)}&limit=15&fields=id,title,artist_display,date_display,image_id,place_of_origin`).then(r=>r.json());
     if (!d.data) return [];
     return d.data.map(o=>({title:o.title,artist:o.artist_display,date:o.date_display,culture:o.place_of_origin,image:o.image_id?`https://www.artic.edu/iiif/2/${o.image_id}/full/400,/0/default.jpg`:null,source:'Art Inst. Chicago',url:`https://www.artic.edu/artworks/${o.id}`})).filter(a=>a.image);
   } catch{return[];}
@@ -278,7 +317,7 @@ async function searchChicago(q) {
 
 async function searchCleveland(q) {
   try {
-    const d = await fetch(`https://openaccess-api.clevelandart.org/api/artworks?q=${encodeURIComponent(q)}&has_image=1&limit=20`).then(r=>r.json());
+    const d = await fetch(`https://openaccess-api.clevelandart.org/api/artworks?q=${encodeURIComponent(q)}&has_image=1&limit=15`).then(r=>r.json());
     if (!d.data) return [];
     return d.data.map(o=>({title:o.title,artist:o.creators?.[0]?.description,date:o.creation_date,culture:o.culture?.join(', '),image:o.images?.web?.url,source:'Cleveland Museum',url:o.url})).filter(a=>a.image);
   } catch{return[];}
@@ -286,54 +325,13 @@ async function searchCleveland(q) {
 
 async function searchVA(q) {
   try {
-    const d = await fetch(`https://api.vam.ac.uk/v2/objects/search?q=${encodeURIComponent(q)}&image_restrict=1&page_size=20`).then(r=>r.json());
-    const records = d.records || [];
-    return records.map(o => {
-      const base = o._images?._iiif_image_base_url;
-      return {
-        title: o._primaryTitle || o.objectType || 'Untitled',
-        artist: o._primaryMaker?.name || '',
-        date: o._primaryDate || '',
-        culture: o._primaryPlace || '',
-        image: base ? `${base}full/400,/0/default.jpg` : null,
-        source: 'V&A',
-        url: `https://collections.vam.ac.uk/item/${o.systemNumber || ''}`
-      };
-    }).filter(a => a.image);
-  } catch { return []; }
+    const d = await fetch(`https://api.vam.ac.uk/v2/objects/search?q=${encodeURIComponent(q)}&images_exist=true&page_size=15`).then(r=>r.json());
+    if (!d.records) return [];
+    return d.records.map(o=>({title:o.fields?.object||o.fields?.title||'Untitled',artist:o.fields?.artist||'',date:o.fields?.date_text||'',culture:o.fields?.place||'',image:o.fields?.primary_image_id?`https://framemark.vam.ac.uk/collections/${o.fields.primary_image_id}/full/400,/0/default.jpg`:null,source:'V&A',url:`https://collections.vam.ac.uk/item/${o.fields?.systemNumber||''}`})).filter(a=>a.image);
+  } catch{return[];}
 }
 
-// Wikimedia Commons — searches art/painting category, no key, open CORS
-async function searchWikimedia(q) {
-  try {
-    const searchQ = `${q} painting artwork`;
-    const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(searchQ)}&gsrnamespace=6&gsrlimit=30&prop=imageinfo&iiprop=url|extmetadata&iiurlwidth=400&iiextmetadatafilter=Artist|DateTimeOriginal|ObjectName|LicenseShortName&format=json&origin=*`;
-    const d = await fetch(url).then(r=>r.json());
-    if (!d.query?.pages) return [];
-    return Object.values(d.query.pages).map(p => {
-      const ii = p.imageinfo?.[0];
-      if (!ii?.url) return null;
-      // skip non-image file types
-      if (!ii.url.match(/\.(jpg|jpeg|png|gif|webp)/i)) return null;
-      const meta = ii.extmetadata || {};
-      const artist = meta.Artist?.value?.replace(/<[^>]+>/g, '') || '';
-      const date = meta.DateTimeOriginal?.value?.replace(/<[^>]+>/g, '') || '';
-      const title = meta.ObjectName?.value || p.title?.replace('File:', '').replace(/_/g, ' ') || 'Untitled';
-      return {
-        title,
-        artist,
-        date,
-        culture: '',
-        image: ii.thumburl || ii.url,
-        source: 'Wikimedia Commons',
-        url: `https://commons.wikimedia.org/wiki/${encodeURIComponent(p.title)}`
-      };
-    }).filter(Boolean);
-  } catch { return []; }
-}
-
-// ── KEYED APIs (proxied through /api/) ────────────────────────────────────────
-
+// Keyed APIs — call our own /api/ routes (keys stay on server)
 async function searchHarvard(q) {
   try {
     const d = await fetch(`/api/harvard?q=${encodeURIComponent(q)}`).then(r=>r.json());
@@ -341,6 +339,7 @@ async function searchHarvard(q) {
     return d.records.map(o=>({title:o.title,artist:o.people?.[0]?.displayname||'',date:o.dated||'',culture:o.culture||'',image:o.primaryimageurl,source:'Harvard Art',url:o.url})).filter(a=>a.image);
   } catch{return[];}
 }
+
 
 async function searchEuropeana(q) {
   try {
@@ -350,41 +349,6 @@ async function searchEuropeana(q) {
   } catch{return[];}
 }
 
-async function searchCooperHewitt(q) {
-  try {
-    const d = await fetch(`/api/cooperhewitt?q=${encodeURIComponent(q)}`).then(r=>r.json());
-    if (!d.objects) return [];
-    return d.objects.map(o => ({
-      title: o.title || 'Untitled',
-      artist: o.participants?.find(p => p.role_name === 'Designer' || p.role_name === 'Maker')?.person_name || '',
-      date: o.date || '',
-      culture: o.culture || o.country || '',
-      image: o.images?.[0]?.b?.url || o.images?.[0]?.z?.url || null,
-      source: 'Cooper Hewitt',
-      url: o.url || `https://collection.cooperhewitt.org/objects/${o.id}`
-    })).filter(a => a.image);
-  } catch { return []; }
-}
-
-async function searchAuckland(q) {
-  try {
-    const d = await fetch(`/api/aucklandmuseum?q=${encodeURIComponent(q)}`).then(r=>r.json());
-    const hits = d.hits?.hits || [];
-    return hits.map(h => {
-      const s = h._source || {};
-      const img = s.primaryRepresentation || s.previewUrl || null;
-      return {
-        title: s.dc_title?.[0] || s.title || 'Untitled',
-        artist: s.dc_creator?.[0] || '',
-        date: s.dc_date?.[0] || '',
-        culture: s.dc_subject?.[0] || s.dc_place?.[0] || '',
-        image: img ? (img.startsWith('http') ? img : `https://www.aucklandmuseum.com${img}`) : null,
-        source: 'Auckland Museum',
-        url: s.id ? `https://www.aucklandmuseum.com/collections/items/item/${s.id}` : ''
-      };
-    }).filter(a => a.image);
-  } catch { return []; }
-}
 </script>
 </body>
 </html>
