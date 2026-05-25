@@ -274,18 +274,20 @@ async function searchCleveland(q) {
   } catch{return[];}
 }
 
+// FIXED: image_restrict=1 replaces images_exist=true (which caused 422).
+// Image URL built from _images._iiif_image_base_url which is always present when an image exists.
 async function searchVA(q) {
   try {
-    const d = await fetch(`https://api.vam.ac.uk/v2/objects/search?q=${encodeURIComponent(q)}&images_exist=true&page_size=15`).then(r=>r.json());
-    const records = d._embedded?.records || d.records || [];
+    const d = await fetch(`https://api.vam.ac.uk/v2/objects/search?q=${encodeURIComponent(q)}&image_restrict=1&page_size=15`).then(r=>r.json());
+    const records = d.records || [];
     return records.map(o => {
-      const imageId = o._primaryImageId || o.fields?.primary_image_id;
+      const base = o._images?._iiif_image_base_url;
       return {
         title: o._primaryTitle || o.objectType || 'Untitled',
         artist: o._primaryMaker?.name || '',
         date: o._primaryDate || '',
         culture: o._primaryPlace || '',
-        image: imageId ? `https://framemark.vam.ac.uk/collections/${imageId}/full/400,/0/default.jpg` : null,
+        image: base ? `${base}full/400,/0/default.jpg` : null,
         source: 'V&A',
         url: `https://collections.vam.ac.uk/item/${o.systemNumber || ''}`
       };
@@ -301,6 +303,7 @@ async function searchHarvard(q) {
   } catch{return[];}
 }
 
+// FIXED: normalise webImage URL (strip Google sizing param that sometimes returns 403)
 async function searchRijks(q) {
   try {
     const d = await fetch(`/api/rijks?q=${encodeURIComponent(q)}`).then(r=>r.json());
@@ -325,6 +328,7 @@ async function searchEuropeana(q) {
   } catch{return[];}
 }
 
+// FIXED: use media[].thumbnail which is always present; fall back to idsId-based URL
 async function searchSmithsonian(q) {
   try {
     const d = await fetch(`/api/smithsonian?q=${encodeURIComponent(q)}`).then(r=>r.json());
@@ -332,9 +336,10 @@ async function searchSmithsonian(q) {
     return d.response.rows.map(o => {
       const nr = o.content?.descriptiveNonRepeating;
       const media = nr?.online_media?.media?.[0];
-      const inlineImg = media?.content;
-      const idsId = media?.idsId;
-      const image = inlineImg || (idsId ? `https://ids.si.edu/ids/deliveryService?id=${idsId}&max=400` : null);
+      const image = media?.thumbnail
+        || (media?.idsId ? `https://ids.si.edu/ids/deliveryService?id=${media.idsId}&max=400` : null)
+        || media?.content
+        || null;
       return {
         title: o.title,
         artist: o.content?.freetext?.name?.[0]?.content || '',
