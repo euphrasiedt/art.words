@@ -3,26 +3,26 @@ export default async function handler(req, res) {
   const { q } = req.query;
   if (!q) return res.status(400).json({ error: 'Missing query' });
 
+  const BASE = 'https://collection-publicapi.aucklandmuseum.com/api/v3';
+
   try {
-    // Search for objects with images only
-    const searchUrl = `https://collection-publicapi.aucklandmuseum.com/api/v3/opacobjects?query=${encodeURIComponent(q)}&view=label&facet=has_images%3AYes&limit=20`;
+    // Step 1: search — returns opacObjects[].opacObjectId only
+    const searchUrl = `${BASE}/opacobjects?query=${encodeURIComponent(q)}&view=label&facet=has_images%3AYes&limit=6`;
     const searchData = await fetch(searchUrl).then(r => r.json());
 
-    const records = searchData?.hits?.hits ?? [];
-    if (!records.length) return res.json({ results: [] });
+    const ids = (searchData?.opacObjects ?? []).map(o => o.opacObjectId).filter(Boolean);
+    if (!ids.length) return res.json({ results: [] });
 
-    // Fetch image derivatives for each record in parallel (cap at 12 to keep latency low)
-    const top = records.slice(0, 12);
+    // Step 2: fetch all detail records in parallel with a 5s hard timeout
+    const timeout = ms => new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms));
+
     const detailed = await Promise.all(
-      top.map(hit => {
-        const id = hit._id ?? hit._source?.id;
-        if (!id) return null;
-        return fetch(
-          `https://collection-publicapi.aucklandmuseum.com/api/v3/opacobjects/${id}?view=label&facet=imageID`
-        )
-          .then(r => r.json())
-          .catch(() => null);
-      })
+      ids.map(id =>
+        Promise.race([
+          fetch(`${BASE}/opacobjects/${id}?view=label&facet=imageID`).then(r => r.json()),
+          timeout(5000)
+        ]).catch(() => null)
+      )
     );
 
     res.json({ results: detailed.filter(Boolean) });
