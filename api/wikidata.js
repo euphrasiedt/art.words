@@ -4,10 +4,8 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Query parameter "q" is required' });
   }
 
-  // Clean up the query string to keep it safe for the SPARQL database
   const safeQ = q.replace(/"/g, '').replace(/\\/g, '');
 
-  // This is the highly targeted query that looks ONLY for artworks/paintings
   const sparql = `
     SELECT DISTINCT ?item ?title ?image ?creator ?date ?collection ?itemUrl WHERE {
       ?item wdt:P31/wdt:P279* ?type .
@@ -47,21 +45,42 @@ export default async function handler(req, res) {
   try {
     const url = `https://query.wikidata.org/sparql?query=${encodeURIComponent(sparql)}&format=json`;
     
-    // We fetch the data from our serverless code, injecting the required User-Agent header
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3-second speed limit
+
     const response = await fetch(url, {
+      signal: controller.signal,
       headers: { 
         'Accept': 'application/sparql-results+json',
-        'User-Agent': 'WordToArtApp/1.0 (contact: your-email-or-placeholder@example.com)'
+        'User-Agent': 'WordToArtApp/1.0 (contact: placeholder@example.com)'
       }
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       throw new Error(`Wikidata responded with status ${response.status}`);
     }
 
     const data = await response.json();
+
+    // Fix the image links so browsers don't block them
+    if (data.results && data.results.bindings) {
+      data.results.bindings = data.results.bindings.map(o => {
+        if (o.image && o.image.value) {
+          // Convert the standard link into a direct, secure image render file path
+          const rawUrl = o.image.value;
+          const fileName = rawUrl.split('/Special:FilePath/')[1];
+          if (fileName) {
+            o.image.value = `https://commons.wikimedia.org/wiki/Special:FilePath/${fileName}?width=400`;
+          }
+        }
+        return o;
+      });
+    }
+
     return res.status(200).json(data);
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    return res.status(200).json({ results: { bindings: [] } });
   }
 }
