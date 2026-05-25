@@ -46,7 +46,7 @@ export default async function handler(req, res) {
     const url = `https://query.wikidata.org/sparql?query=${encodeURIComponent(sparql)}&format=json`;
     
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3-second speed limit
+    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3-second speed ceiling
 
     const response = await fetch(url, {
       signal: controller.signal,
@@ -64,15 +64,17 @@ export default async function handler(req, res) {
 
     const data = await response.json();
 
-    // Fix the image links so browsers don't block them
     if (data.results && data.results.bindings) {
       data.results.bindings = data.results.bindings.map(o => {
         if (o.image && o.image.value) {
-          // Convert the standard link into a direct, secure image render file path
-          const rawUrl = o.image.value;
-          const fileName = rawUrl.split('/Special:FilePath/')[1];
+          // Decode any complex encoded characters and isolate the raw file name cleanly
+          const rawUrl = decodeURIComponent(o.image.value);
+          const parts = rawUrl.split('/');
+          const fileName = parts[parts.length - 1]; 
+          
           if (fileName) {
-            o.image.value = `https://commons.wikimedia.org/wiki/Special:FilePath/${fileName}?width=400`;
+            // Use the reliable Special:Redirect endpoint which requires no custom formatting hacks
+            o.image.value = `https://commons.wikimedia.org/wiki/Special:Redirect/file/${encodeURIComponent(fileName)}?width=400`;
           }
         }
         return o;
