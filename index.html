@@ -201,7 +201,7 @@ document.getElementById('searchBtn').addEventListener('click', () => { const w =
 WI.addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('searchBtn').click(); });
 function qs(w) { WI.value = w; search(w); }
 
-const ALL_SOURCES = ['The Met','Art Inst. Chicago','Cleveland Museum','V&A','Harvard Art','Rijksmuseum','Europeana','Smithsonian','Te Papa','DPLA','Wikidata'];
+const ALL_SOURCES = ['The Met','Art Inst. Chicago','Cleveland Museum','V&A','Harvard Art','Rijksmuseum','Europeana','Smithsonian','Te Papa','DPLA'];
 
 function renderSourceBar(active) {
   SB.innerHTML = ALL_SOURCES.map(s =>
@@ -219,7 +219,7 @@ async function search(word) {
   const results = await Promise.allSettled([
     searchMet(q), searchChicago(q), searchCleveland(q), searchVA(q),
     searchHarvard(q), searchRijks(q), searchEuropeana(q), searchSmithsonian(q),
-    searchTePapa(q), searchDPLA(q), searchWikidata(q),
+    searchTePapa(q), searchDPLA(q),
   ]);
 
   let arts = results.filter(r => r.status === 'fulfilled').flatMap(r => r.value).filter(a => a.image);
@@ -347,24 +347,6 @@ async function searchDPLA(q) {
       image: o.object || o.thumbnail?.['@id'],
       source: 'DPLA',
       url: o.isShownAt
-    })).filter(a => a.image);
-  } catch { return []; }
-}
-
-async function searchWikidata(q) {
-  try {
-    const url = `/api/wikidata?q=${encodeURIComponent(q)}`;
-    const d = await fetch(url).then(r => r.json());
-    
-    if (!d.results?.bindings) return [];
-    return d.results.bindings.map(o => ({
-      title: o.title?.value || 'Untitled',
-      artist: o.creator?.value || 'Unknown artist',
-      date: o.date?.value || '',
-      culture: o.collection?.value || '',
-      image: o.image?.value,
-      source: 'Wikidata',
-      url: o.itemUrl?.value
     })).filter(a => a.image);
   } catch { return []; }
 }
