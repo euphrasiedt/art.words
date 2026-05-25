@@ -1,3 +1,5 @@
+import crypto from 'crypto';
+
 export default async function handler(req, res) {
   const { q } = req.query;
   if (!q) {
@@ -7,26 +9,29 @@ export default async function handler(req, res) {
   const safeQ = q.replace(/"/g, '').replace(/\\/g, '');
 
   const sparql = `
-    SELECT DISTINCT ?item ?title ?image ?creator ?date ?collection ?itemUrl WHERE {
+    SELECT DISTINCT ?title ?image ?creator ?date ?collection ?itemUrl WHERE {
       ?item wdt:P31/wdt:P279* ?type .
       VALUES ?type {
         wd:Q3305213  # painting
         wd:Q860861   # sculpture
         wd:Q219423   # drawing
         wd:Q184741   # print
-        wd:Q570116   # tourist attraction / historical site art
         wd:Q429785   # artifact
         wd:Q245117   # tapestry
       }
-      ?item rdfs:label ?title .
-      FILTER(LANG(?title) = "en")
-      FILTER(CONTAINS(LCASE(?title), LCASE("${safeQ}")))
-      ?item wdt:P18 ?image .
-      FILTER(STRSTARTS(STR(?image), "http://commons.wikimedia.org/"))
+      ?item rdfs:label ?titleRaw .
+      FILTER(LANG(?titleRaw) = "en")
+      FILTER(CONTAINS(LCASE(?titleRaw), LCASE("${safeQ}")))
+      BIND(STR(?titleRaw) AS ?title)
+
+      ?item wdt:P18 ?imageRaw .
+      BIND(STR(?imageRaw) AS ?image)
+
       OPTIONAL {
         ?item wdt:P170 ?creatorItem .
-        ?creatorItem rdfs:label ?creator .
-        FILTER(LANG(?creator) = "en")
+        ?creatorItem rdfs:label ?creatorRaw .
+        FILTER(LANG(?creatorRaw) = "en")
+        BIND(STR(?creatorRaw) AS ?creator)
       }
       OPTIONAL {
         ?item wdt:P571|wdt:P577 ?dateRaw .
@@ -34,10 +39,11 @@ export default async function handler(req, res) {
       }
       OPTIONAL {
         ?item wdt:P195 ?collectionItem .
-        ?collectionItem rdfs:label ?collection .
-        FILTER(LANG(?collection) = "en")
+        ?collectionItem rdfs:label ?collectionRaw .
+        FILTER(LANG(?collectionRaw) = "en")
+        BIND(STR(?collectionRaw) AS ?collection)
       }
-      BIND(URI(CONCAT("https://www.wikidata.org/wiki/", SUBSTR(STR(?item),32))) AS ?itemUrl)
+      BIND(STR(?item) AS ?itemUrl)
     }
     LIMIT 15
   `;
@@ -46,7 +52,7 @@ export default async function handler(req, res) {
     const url = `https://query.wikidata.org/sparql?query=${encodeURIComponent(sparql)}&format=json`;
     
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3-second speed ceiling
+    const timeoutId = setTimeout(() => controller.abort(), 4000); // 4 second limit
 
     const response = await fetch(url, {
       signal: controller.signal,
@@ -59,7 +65,7 @@ export default async function handler(req, res) {
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      throw new Error(`Wikidata responded with status ${response.status}`);
+      throw new Error(`Wikidata error status ${response.status}`);
     }
 
     const data = await response.json();
@@ -67,14 +73,27 @@ export default async function handler(req, res) {
     if (data.results && data.results.bindings) {
       data.results.bindings = data.results.bindings.map(o => {
         if (o.image && o.image.value) {
-          // Decode any complex encoded characters and isolate the raw file name cleanly
-          const rawUrl = decodeURIComponent(o.image.value);
-          const parts = rawUrl.split('/');
-          const fileName = parts[parts.length - 1]; 
+          // 1. Isolate the exact Wikipedia File Name
+          const rawUrl = o.image.value;
+          const prefix = "http://commons.wikimedia.org/wiki/Special:FilePath/";
+          let fileName = rawUrl.replace(prefix, "");
           
+          // Fallback if URL structure varies
+          if (fileName.includes("Special:FilePath/")) {
+            fileName = fileName.split("Special:FilePath/")[1];
+          }
+          
+          // Decode URL formatting to get the raw text (e.g., convert '%20' back to spaces)
+          fileName = decodeURIComponent(fileName).replace(/ /g, '_');
+
           if (fileName) {
-            // Use the reliable Special:Redirect endpoint which requires no custom formatting hacks
-            o.image.value = `https://commons.wikimedia.org/wiki/Special:Redirect/file/${encodeURIComponent(fileName)}?width=400`;
+            // 2. Generate standard Wikimedia MD5 hash paths
+            const hash = crypto.createHash('md5').update(fileName).digest('hex');
+            const a = hash.charAt(0);
+            const ab = hash.substring(0, 2);
+            
+            // 3. Build the official direct image asset URL
+            o.image.value = `https://upload.wikimedia.org/wikipedia/commons/thumb/${a}/${ab}/${encodeURIComponent(fileName)}/400px-${encodeURIComponent(fileName)}`;
           }
         }
         return o;
