@@ -757,12 +757,33 @@ async function fetchEtymology(word) {
 function parseWikitext(wikitext, word) {
   function resolveCode(code) { return LANG_CODES[code] || code; }
 
+  // Collapse ALL {{...}} templates — iteratively handles nesting
+  function removeAllTemplates(s) {
+    let prev;
+    do {
+      prev = s;
+      s = s.replace(/\{\{[^{}]*\}\}/g, '');
+    } while (s !== prev);
+    return s;
+  }
+
+  // For origin text: strip templates but try to salvage the word form from m/l/der/inh/bor/cog
   function stripTemplates(s) {
-    s = s.replace(/\{\{(?:m|l|der|inh|bor|cog|etyl|mention|link)\|[^|{}]*\|[^|{}]*\|([^|{}=]+)[^{}]*\}\}/gi, '$1');
-    s = s.replace(/\{\{(?:m|l)\|[^|{}]*\|([^|{}=]+)\}\}/gi, '$1');
-    s = s.replace(/\{\{[^{}]*\}\}/g, '');
+    // Extract readable word from linguistic templates before removing them
+    // {{der|en|la|aqua|t=water}} → aqua
+    s = s.replace(/\{\{(?:m|l|der|inh|bor|cog|etyl|mention|link)\|[^|{}]*\|[^|{}]*\|([^|{}=*\n][^|{}=\n]*?)(?:\|[^{}]*)?\}\}/gi, function(_, w){ return w.trim(); });
+    // {{m|la|aqua}} (2-arg form) → aqua
+    s = s.replace(/\{\{(?:m|l)\|[^|{}]*\|([^|{}=*\n]+?)\}\}/gi, function(_, w){ return w.trim(); });
+    // Nuke everything else
+    s = removeAllTemplates(s);
+    // Wikilinks
     s = s.replace(/\[\[(?:[^\]|]+\|)?([^\]]+)\]\]/g, '$1');
+    // Bold/italic
     s = s.replace(/'''?/g, '');
+    // Stray symbols left by mangled templates
+    s = s.replace(/\*\s*t\s*\*/g, ' ');
+    s = s.replace(/\|\s*t\s*=/g, ' ');
+    s = s.replace(/[|*=]+/g, ' ');
     return s.replace(/\s+/g, ' ').trim();
   }
 
