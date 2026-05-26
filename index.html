@@ -329,6 +329,9 @@ function renameCol(colId) {
   if (n && n.trim()) { cols[colId].name = n.trim().slice(0,40); saveCols(cols); renderCols(); }
 }
 
+// KEY FIX: toggleInCol no longer calls renderCols() or refreshHearts().
+// The caller is responsible for updating UI after the data change.
+// This prevents the popover's DOM from being blown away mid-click.
 function toggleInCol(colId, art) {
   const cols = loadCols();
   if (!cols[colId]) return;
@@ -340,8 +343,7 @@ function toggleInCol(colId, art) {
     cols[colId].artworks.unshift({ id: id, title: art.title, image: art.image, url: art.url, source: art.source });
   }
   saveCols(cols);
-  renderCols();
-  refreshHearts();
+  // Callers must call renderCols() and refreshHearts() themselves after this
 }
 
 function removeFromCol(colId, artworkId) {
@@ -399,15 +401,19 @@ function renderCols() {
   }).join('');
 }
 
-// Map from button element -> art object (no serialization needed)
-const heartMap = new Map();
+// heartMap: artId string -> Set of button elements
+// Keyed by stable ID string, not DOM element, so renderCols() doesn't invalidate it
+const heartMap = new Map(); // artId -> art object (for isSaved lookups)
+const heartBtns = new Map(); // artId -> Set<button> (all buttons for that art across renders)
 
 function refreshHearts() {
-  heartMap.forEach(function(art, btn) {
-    if (!btn.isConnected) return;
-    const s = isSaved(art);
-    btn.classList.toggle('saved', s);
-    btn.textContent = s ? '\u2665' : '\u2661';
+  heartBtns.forEach(function(btnSet, id) {
+    btnSet.forEach(function(btn) {
+      if (!btn.isConnected) { btnSet.delete(btn); return; }
+      const saved = heartMap.has(id) && isSaved(heartMap.get(id));
+      btn.classList.toggle('saved', saved);
+      btn.textContent = saved ? '\u2665' : '\u2661';
+    });
   });
 }
 
@@ -418,9 +424,8 @@ function refreshHearts() {
 const popover = document.getElementById('save-popover');
 const popoverList = document.getElementById('save-popover-list');
 
-// pendingArt: the art object currently being targeted by the popover/modal
-// NEVER cleared by closePopover — only replaced or cleared after a successful action
 let pendingArt = null;
+let popoverOpen = false;
 
 function renderPopover() {
   if (!pendingArt) return;
@@ -430,14 +435,18 @@ function renderPopover() {
     popoverList.innerHTML = '<div style="font-size:11px;color:#999;padding:8px 12px;">No collections yet</div>';
     return;
   }
-  popoverList.innerHTML = keys.map(function(id) {
+  // Build popover rows as DOM elements — no innerHTML replacement so clicks aren't lost
+  popoverList.innerHTML = '';
+  keys.forEach(function(id) {
     const inCol = isInCol(id, pendingArt);
-    return '<div class="save-popover-item' + (inCol ? ' saved-in' : '') + '" data-colid="' + id + '">'
-      + '<span class="item-icon">&#128194;</span>'
-      + '<span>' + esc(cols[id].name) + '</span>'
-      + (inCol ? '<span class="item-check">&#10003;</span>' : '')
-      + '</div>';
-  }).join('');
+    const row = document.createElement('div');
+    row.className = 'save-popover-item' + (inCol ? ' saved-in' : '');
+    row.dataset.colid = id;
+    row.innerHTML = '<span class="item-icon">&#128194;</span>'
+      + '<span>' + esc(loadCols()[id].name) + '</span>'
+      + (inCol ? '<span class="item-check">&#10003;</span>' : '');
+    popoverList.appendChild(row);
+  });
 }
 
 function showPopover(btn, art) {
@@ -450,26 +459,39 @@ function showPopover(btn, art) {
   if (left + 200 > window.innerWidth - 8) left = window.innerWidth - 208;
   popover.style.left = left + 'px';
   popover.classList.add('visible');
+  popoverOpen = true;
 }
 
 function closePopover() {
   popover.classList.remove('visible');
-  // DO NOT clear pendingArt — modal may need it
+  popoverOpen = false;
+  // DO NOT clear pendingArt
 }
 
-// Clicks on collection rows inside the popover (bubble phase, stopPropagation keeps popover open)
+// Popover row clicks — use event delegation on the list container
 popoverList.addEventListener('click', function(e) {
   const item = e.target.closest('[data-colid]');
   if (!item) return;
   e.stopPropagation();
-  toggleInCol(item.dataset.colid, pendingArt);
-  renderPopover();
+  const colId = item.dataset.colid;
+  toggleInCol(colId, pendingArt);
+  // Update this row in-place without rebuilding the whole list
+  const inCol = isInCol(colId, pendingArt);
+  item.className = 'save-popover-item' + (inCol ? ' saved-in' : '');
+  item.innerHTML = '<span class="item-icon">&#128194;</span>'
+    + '<span>' + esc(loadCols()[colId].name) + '</span>'
+    + (inCol ? '<span class="item-check">&#10003;</span>' : '');
+  // Update sidebar and heart buttons without touching popover DOM
+  renderCols();
+  refreshHearts();
 });
 
-// Outside click closes popover — bubble phase, uses a flag set by the popover itself
+// Keep popover open when clicking inside it
 popover.addEventListener('click', function(e) { e.stopPropagation(); });
-document.addEventListener('click', function(e) {
-  if (popover.classList.contains('visible')) closePopover();
+
+// Close on outside click
+document.addEventListener('click', function() {
+  if (popoverOpen) closePopover();
 });
 
 // ============================================================
@@ -478,7 +500,7 @@ document.addEventListener('click', function(e) {
 
 const modalOverlay = document.getElementById('folder-modal-overlay');
 const folderInput = document.getElementById('folder-name-input');
-let modalAutoSave = false; // whether to auto-save pendingArt into new col
+let modalAutoSave = false;
 
 function openModal(autoSave) {
   modalAutoSave = !!autoSave;
@@ -499,6 +521,8 @@ function confirmModal() {
   closeModal();
   if (modalAutoSave && pendingArt) {
     toggleInCol(newId, pendingArt);
+    renderCols();
+    refreshHearts();
   }
   modalAutoSave = false;
 }
@@ -511,16 +535,14 @@ folderInput.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') closeModal();
 });
 
-// Sidebar + button
 document.getElementById('new-folder-btn').addEventListener('click', function() {
   pendingArt = null;
   openModal(false);
 });
 
-// Popover "New collection" row
 document.getElementById('save-popover-new').addEventListener('click', function(e) {
   e.stopPropagation();
-  openModal(true); // pendingArt is already set from showPopover
+  openModal(true);
 });
 
 // ============================================================
@@ -545,6 +567,10 @@ async function search(word) {
   const note = activeLabel ? ' - ' + activeLabel : '';
   ST.textContent = 'Searching collections' + note + '...';
   const q = activeTerm ? word + ' ' + activeTerm : word;
+
+  // Clear stale heart registrations from previous search
+  heartMap.clear();
+  heartBtns.clear();
 
   const results = await Promise.allSettled([
     searchMet(q), searchChicago(q), searchCleveland(q), searchVA(q),
@@ -574,13 +600,13 @@ async function search(word) {
 }
 
 function makeCard(art) {
+  const id = artId(art);
   const el = document.createElement('a');
   el.className = 'card';
   el.href = art.url || '#';
   el.target = '_blank';
   el.rel = 'noopener noreferrer';
 
-  // Build inner HTML without the heart button (we'll append it as a real element)
   el.innerHTML = '<img src="' + (art.image||'') + '" alt="" loading="lazy" onerror="this.closest(\'.card\').remove()"/>'
     + '<div class="cb">'
     + '<div class="ct">' + esc(art.title||'Untitled') + '</div>'
@@ -589,20 +615,22 @@ function makeCard(art) {
     + '<span class="cs">' + esc(art.source) + '</span>'
     + '</div>';
 
-  // Create heart button as a real DOM element — no serialization
   const btn = document.createElement('button');
-  btn.className = 'heart-btn' + (isSaved(art) ? ' saved' : '');
+  const saved = isSaved(art);
+  btn.className = 'heart-btn' + (saved ? ' saved' : '');
   btn.title = 'Save to collection';
-  btn.textContent = isSaved(art) ? '\u2665' : '\u2661';
-  heartMap.set(btn, art);
+  btn.textContent = saved ? '\u2665' : '\u2661';
+
+  // Register in both maps keyed by stable art ID
+  heartMap.set(id, art);
+  if (!heartBtns.has(id)) heartBtns.set(id, new Set());
+  heartBtns.get(id).add(btn);
 
   btn.addEventListener('click', function(e) {
     e.preventDefault();
     e.stopPropagation();
-    const art = heartMap.get(btn);
     const cols = loadCols();
     if (!Object.keys(cols).length) {
-      // No collections yet — open modal to create one, then auto-save
       pendingArt = art;
       openModal(true);
     } else {
