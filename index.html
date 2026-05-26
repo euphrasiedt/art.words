@@ -764,22 +764,37 @@ function parseWikitext(wikitext, word) {
   const defMatch = englishText.match(/^#\s*([^#\n*:].+)/m);
   if (defMatch) meaning = stripTemplates(defMatch[1]).substring(0, 200);
 
-  // English related words — pull from all relevant sections
+  // English related words — handle Wiktionary's actual format
+  // Sections use ====four==== or ===three=== equals signs
+  // Words appear as [[word]], {{l|en|word}}, or inside {{der3|en|word1|word2|...}} / {{col3|en|...}}
   const related = [];
-  const seen = new Set([word]);
+  const seen = new Set([word.toLowerCase()]);
 
   function extractEnglishWords(sectionText) {
-    // [[word]] links
-    const links = [...sectionText.matchAll(/\[\[([a-z][a-z\s\-']+)\]\]/gi)];
-    links.forEach(function(mx) {
+    // {{der3|en|word1|word2|...}}, {{col3|en|...}}, {{der2|en|...}} etc — positional args after lang code
+    const derTemplates = [...sectionText.matchAll(/\{\{(?:der|col|rel|syn)\d*\|en\|([\s\S]*?)\}\}/gi)];
+    derTemplates.forEach(function(mx) {
+      mx[1].split('|').forEach(function(arg) {
+        // Skip named args like title=, sort=, etc
+        if (arg.includes('=')) return;
+        // Strip any inline template wrappers like {{l|en|word}}
+        arg = arg.replace(/\{\{l\|en\|([^|{}]+)\}\}/gi, '$1');
+        arg = arg.replace(/\{\{[^{}]+\}\}/g, '');
+        const w = arg.trim().toLowerCase().replace(/[[\]]/g, '');
+        if (w && !seen.has(w) && w.length > 2 && w.length < 22 && /^[a-z]/.test(w)) {
+          seen.add(w); related.push(w);
+        }
+      });
+    });
+    // Explicit {{l|en|word}} links
+    [...sectionText.matchAll(/\{\{l\|en\|([^|{}=\n]+?)(?:\|[^{}]*)?\}\}/gi)].forEach(function(mx) {
       const w = mx[1].trim().toLowerCase();
-      if (!seen.has(w) && w.length > 2 && w.length < 22 && !/\s{2}/.test(w)) {
+      if (!seen.has(w) && w.length > 2 && w.length < 22 && /^[a-z]/.test(w)) {
         seen.add(w); related.push(w);
       }
     });
-    // {{l|en|word}} — explicit English language links
-    const enLinks = [...sectionText.matchAll(/\{\{l\|en\|([^|{}=\n]+?)\}\}/gi)];
-    enLinks.forEach(function(mx) {
+    // Plain [[word]] wikilinks (no pipe)
+    [...sectionText.matchAll(/\[\[([a-z][a-z\s\-']+)\]\]/gi)].forEach(function(mx) {
       const w = mx[1].trim().toLowerCase();
       if (!seen.has(w) && w.length > 2 && w.length < 22) {
         seen.add(w); related.push(w);
@@ -787,11 +802,15 @@ function parseWikitext(wikitext, word) {
     });
   }
 
-  // Priority order: Derived terms > Related terms > Synonyms > See also
-  const sections = ['Derived terms', 'Related terms', 'Synonyms', 'See also'];
-  sections.forEach(function(sec) {
-    const m = englishText.match(new RegExp('===?\\s*' + sec + '\\s*===?\\s*\\n([\\s\\S]*?)(?:\\n===|$)', 'i'));
-    if (m) extractEnglishWords(m[1]);
+  // Match sections with any number of = signs (3 or 4)
+  function getSection(name) {
+    const m = englishText.match(new RegExp('={3,4}\\s*' + name + '\\s*={3,4}\\s*\\n([\\s\\S]*?)(?:\\n={2,4}[^=]|$)', 'i'));
+    return m ? m[1] : null;
+  }
+
+  ['Derived terms', 'Related terms', 'Synonyms', 'See also'].forEach(function(sec) {
+    const s = getSection(sec);
+    if (s) extractEnglishWords(s);
   });
 
   if (!origin && !meaning && !related.length) throw new Error('No data');
