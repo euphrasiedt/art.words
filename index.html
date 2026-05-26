@@ -432,16 +432,14 @@ function escHtml(str) {
   return String(str || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+// Map from heart button element → art object (avoids HTML attribute serialization)
+const heartArtMap = new Map();
+
 function refreshHearts() {
-  document.querySelectorAll('.heart-btn').forEach(btn => {
-    const artJson = btn.dataset.art;
-    if (!artJson) return;
-    try {
-      const art = JSON.parse(artJson);
-      const saved = isArtSavedAnywhere(art);
-      btn.classList.toggle('saved', saved);
-      btn.textContent = saved ? '♥' : '♡';
-    } catch {}
+  heartArtMap.forEach((art, btn) => {
+    const saved = isArtSavedAnywhere(art);
+    btn.classList.toggle('saved', saved);
+    btn.textContent = saved ? '♥' : '♡';
   });
 }
 
@@ -598,23 +596,23 @@ function makeCard(art) {
   el.rel = 'noopener noreferrer';
 
   const saved = isArtSavedAnywhere(art);
-  const heartHtml = `<button class="heart-btn ${saved ? 'saved' : ''}" data-art="${escHtml(JSON.stringify(art))}" title="Save to collection">${saved ? '♥' : '♡'}</button>`;
-
-  el.innerHTML = `${heartHtml}<img src="${art.image}" alt="" loading="lazy" onerror="this.closest('.card').remove()"/>
+  el.innerHTML = `<button class="heart-btn ${saved ? 'saved' : ''}" title="Save to collection">${saved ? '♥' : '♡'}</button>
+  <img src="${art.image}" alt="" loading="lazy" onerror="this.closest('.card').remove()"/>
   <div class="cb"><div class="ct">${art.title||'Untitled'}</div><div class="ca">${art.artist||'Unknown artist'}</div><div class="cm">${[art.date,art.culture].filter(Boolean).join(' · ')}</div><span class="cs">${art.source}</span></div>`;
 
-  el.querySelector('.heart-btn').addEventListener('click', e => {
+  const heartBtn = el.querySelector('.heart-btn');
+  heartArtMap.set(heartBtn, art);
+
+  heartBtn.addEventListener('click', e => {
     e.preventDefault();
     e.stopPropagation();
-    const btn = e.currentTarget;
-    const artData = JSON.parse(btn.dataset.art);
+    const artData = heartArtMap.get(e.currentTarget);
     const cols = loadCollections();
     if (!Object.keys(cols).length) {
-      // No collections yet — open modal directly
       popoverArt = artData;
       openFolderModalFromPopover();
     } else {
-      showSavePopover(btn, artData);
+      showSavePopover(e.currentTarget, artData);
     }
   });
 
