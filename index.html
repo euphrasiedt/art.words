@@ -457,7 +457,7 @@ function closePopover() {
   // DO NOT clear pendingArt — modal may need it
 }
 
-// Clicks on collection rows inside the popover
+// Clicks on collection rows inside the popover (bubble phase, stopPropagation keeps popover open)
 popoverList.addEventListener('click', function(e) {
   const item = e.target.closest('[data-colid]');
   if (!item) return;
@@ -466,13 +466,11 @@ popoverList.addEventListener('click', function(e) {
   renderPopover();
 });
 
-// Outside click closes popover
+// Outside click closes popover — bubble phase, uses a flag set by the popover itself
+popover.addEventListener('click', function(e) { e.stopPropagation(); });
 document.addEventListener('click', function(e) {
-  if (!popover.classList.contains('visible')) return;
-  if (!popover.contains(e.target) && !e.target.classList.contains('heart-btn')) {
-    closePopover();
-  }
-}, true); // capture phase so it fires before anything else
+  if (popover.classList.contains('visible')) closePopover();
+});
 
 // ============================================================
 // FOLDER MODAL
