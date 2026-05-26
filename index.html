@@ -676,23 +676,95 @@ function renderEtymContent(etym, word) {
   });
 }
 
+// Fetch etymology from Wiktionary (free, no key, CORS-enabled)
+// Strategy: parse the wikitext of the English entry for etymology section + related terms
 async function fetchEtymology(word) {
-  const resp = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1000,
-      messages: [{
-        role: 'user',
-        content: 'Provide the etymology for the English word "' + word + '". Respond ONLY with a JSON object, no markdown, no preamble:\n{"partOfSpeech":"noun/verb/adjective/etc","origin":"2-3 sentences about linguistic origin and historical development","meaning":"the original or earliest known meaning","roots":["root1","root2"],"related":["word1","word2","word3","word4","word5","word6","word7","word8"]}\nFor related: include etymologically connected words, cognates, derived forms, or words sharing the same root. All should be common English words good for searching art collections. Max 8 words.'
-      }]
-    })
-  });
-  if (!resp.ok) throw new Error('API error');
+  const base = 'https://en.wiktionary.org/w/api.php';
+  const params = '?action=parse&page=' + encodeURIComponent(word)
+    + '&prop=wikitext&format=json&origin=*';
+  const resp = await fetch(base + params);
+  if (!resp.ok) throw new Error('Wiktionary unavailable');
   const data = await resp.json();
-  const text = (data.content || []).filter(function(b){return b.type==='text';}).map(function(b){return b.text;}).join('');
-  return JSON.parse(text.replace(/```json|```/g,'').trim());
+  if (data.error || !data.parse) throw new Error('Word not found');
+  const wikitext = data.parse.wikitext['*'] || '';
+  return parseWikitext(wikitext, word);
+}
+
+function parseWikitext(wikitext, word) {
+  // Strip template markup down to readable text
+  function stripTemplates(s) {
+    // Handle {{m|lang|word}}, {{der|en|la|word}}, {{inh|...}}, {{cog|...}} etc — extract last meaningful arg
+    s = s.replace(/\{\{(?:m|l|der|inh|bor|cog|etyl|mention|link)\|[^|{}]*\|[^|{}]*\|([^|{}=]+)[^{}]*\}\}/gi, '$1');
+    // {{m|lang|word}} with only 2 args
+    s = s.replace(/\{\{(?:m|l)\|[^|{}]*\|([^|{}=]+)\}\}/gi, '$1');
+    // Remaining templates — strip entirely
+    s = s.replace(/\{\{[^{}]*\}\}/g, '');
+    // Wikilinks [[word|display]] and [[word]]
+    s = s.replace(/\[\[(?:[^\]|]+\|)?([^\]]+)\]\]/g, '$1');
+    // Bold/italic markup
+    s = s.replace(/'''?/g, '');
+    // Clean up leftover punctuation
+    s = s.replace(/\s+/g, ' ').trim();
+    return s;
+  }
+
+  // Extract the ==English== section only
+  const englishMatch = wikitext.match(/==English==\s*([\s\S]*?)(?:\n==[^=]|$)/);
+  const englishText = englishMatch ? englishMatch[1] : wikitext;
+
+  // Part of speech — first ===Noun===, ===Verb=== etc
+  let partOfSpeech = '';
+  const posMatch = englishText.match(/===\s*(Noun|Verb|Adjective|Adverb|Pronoun|Preposition|Conjunction|Interjection|Determiner)\s*===/i);
+  if (posMatch) partOfSpeech = posMatch[1].toLowerCase();
+
+  // Etymology section
+  let origin = '';
+  let roots = [];
+  const etymMatch = englishText.match(/===?\s*Etymology\s*[12]?\s*===?\s*\n([\s\S]*?)(?:\n===|$)/i);
+  if (etymMatch) {
+    const raw = etymMatch[1];
+    // Extract root language mentions for the roots array
+    const rootMatches = [...raw.matchAll(/\{\{(?:der|inh|bor|etyl)[^}]+\|([a-z\-]+)\}\}/gi)];
+    const langCodes = { la:'Latin', grc:'Ancient Greek', ang:'Old English', fro:'Old French',
+      gem:'Germanic', non:'Old Norse', de:'German', fr:'French', it:'Italian',
+      es:'Spanish', ar:'Arabic', sa:'Sanskrit', zh:'Chinese', ja:'Japanese',
+      got:'Gothic', ine:'Proto-Indo-European', osp:'Old Spanish', nl:'Dutch' };
+    roots = [...new Set(rootMatches.map(m => langCodes[m[1]] || m[1]))].slice(0,4);
+
+    const cleaned = stripTemplates(raw).split('\n').filter(l => l.trim()).join(' ');
+    origin = cleaned.substring(0, 320);
+    if (cleaned.length > 320) origin += '…';
+  }
+
+  // First definition as "meaning"
+  let meaning = '';
+  const defMatch = englishText.match(/^#\s*([^#\n*:].+)/m);
+  if (defMatch) meaning = stripTemplates(defMatch[1]).substring(0, 180);
+
+  // Related / derived terms
+  let related = [];
+  const relSection = englishText.match(/===?\s*(?:Related terms|Derived terms|Synonyms)\s*===?\s*\n([\s\S]*?)(?:\n===|$)/i);
+  if (relSection) {
+    const words = [...relSection[1].matchAll(/\[\[([a-z][a-z\s\-']+)\]\]/gi)]
+      .map(m => m[1].trim())
+      .filter(w => w !== word && w.length > 2 && w.length < 20 && !/\s{2}/.test(w));
+    related = [...new Set(words)].slice(0, 8);
+  }
+
+  // If no related found, try "See also"
+  if (!related.length) {
+    const seeAlso = englishText.match(/===?\s*See also\s*===?\s*\n([\s\S]*?)(?:\n===|$)/i);
+    if (seeAlso) {
+      const words = [...seeAlso[1].matchAll(/\[\[([a-z][a-z\s\-']+)\]\]/gi)]
+        .map(m => m[1].trim())
+        .filter(w => w !== word && w.length > 2 && w.length < 20);
+      related = [...new Set(words)].slice(0, 8);
+    }
+  }
+
+  if (!origin && !meaning && !related.length) throw new Error('No etymology data found');
+
+  return { partOfSpeech, origin, meaning, roots, related };
 }
 
 // ============================================================
