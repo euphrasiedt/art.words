@@ -425,28 +425,30 @@ const popover = document.getElementById('save-popover');
 const popoverList = document.getElementById('save-popover-list');
 
 let pendingArt = null;
-let popoverOpen = false;
 
 function renderPopover() {
   if (!pendingArt) return;
   const cols = loadCols();
   const keys = Object.keys(cols);
+  popoverList.innerHTML = '';
   if (!keys.length) {
     popoverList.innerHTML = '<div style="font-size:11px;color:#999;padding:8px 12px;">No collections yet</div>';
     return;
   }
-  // Build popover rows as DOM elements — no innerHTML replacement so clicks aren't lost
-  popoverList.innerHTML = '';
   keys.forEach(function(id) {
     const inCol = isInCol(id, pendingArt);
     const row = document.createElement('div');
     row.className = 'save-popover-item' + (inCol ? ' saved-in' : '');
     row.dataset.colid = id;
     row.innerHTML = '<span class="item-icon">&#128194;</span>'
-      + '<span>' + esc(loadCols()[id].name) + '</span>'
+      + '<span>' + esc(cols[id].name) + '</span>'
       + (inCol ? '<span class="item-check">&#10003;</span>' : '');
     popoverList.appendChild(row);
   });
+}
+
+function outsideClickHandler(e) {
+  if (!popover.contains(e.target)) closePopover();
 }
 
 function showPopover(btn, art) {
@@ -459,39 +461,34 @@ function showPopover(btn, art) {
   if (left + 200 > window.innerWidth - 8) left = window.innerWidth - 208;
   popover.style.left = left + 'px';
   popover.classList.add('visible');
-  popoverOpen = true;
+  // Defer adding the outside-click listener until AFTER this click event finishes,
+  // otherwise the heart-button click that opened the popover immediately closes it.
+  setTimeout(function() {
+    document.addEventListener('click', outsideClickHandler);
+  }, 0);
 }
 
 function closePopover() {
   popover.classList.remove('visible');
-  popoverOpen = false;
-  // DO NOT clear pendingArt
+  document.removeEventListener('click', outsideClickHandler);
+  // DO NOT clear pendingArt — modal flow needs it
 }
 
-// Popover row clicks — use event delegation on the list container
+// Popover row clicks
 popoverList.addEventListener('click', function(e) {
   const item = e.target.closest('[data-colid]');
   if (!item) return;
-  e.stopPropagation();
   const colId = item.dataset.colid;
   toggleInCol(colId, pendingArt);
-  // Update this row in-place without rebuilding the whole list
+  // Update just this row in-place — don't rebuild the whole popover
   const inCol = isInCol(colId, pendingArt);
   item.className = 'save-popover-item' + (inCol ? ' saved-in' : '');
   item.innerHTML = '<span class="item-icon">&#128194;</span>'
     + '<span>' + esc(loadCols()[colId].name) + '</span>'
     + (inCol ? '<span class="item-check">&#10003;</span>' : '');
-  // Update sidebar and heart buttons without touching popover DOM
+  // Update sidebar and hearts without touching the popover DOM
   renderCols();
   refreshHearts();
-});
-
-// Keep popover open when clicking inside it
-popover.addEventListener('click', function(e) { e.stopPropagation(); });
-
-// Close on outside click
-document.addEventListener('click', function() {
-  if (popoverOpen) closePopover();
 });
 
 // ============================================================
