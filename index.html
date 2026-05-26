@@ -112,7 +112,7 @@ body{font-family:Georgia,serif;background:#f5f2ec;color:#1a1a1a;display:flex;min
 #etym-overlay{position:fixed;inset:0;background:rgba(0,0,0,.38);z-index:3000;display:none;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto;}
 #etym-overlay.open{display:flex;}
 #etym-box{background:#fff;border-radius:12px;width:100%;max-width:680px;box-shadow:0 16px 48px rgba(0,0,0,.22);overflow:hidden;margin:auto;position:relative;}
-#etym-art-img{width:100%;max-height:320px;object-fit:cover;display:block;}
+#etym-art-img{width:100%;display:block;}
 #etym-close{position:absolute;top:12px;right:12px;background:rgba(255,255,255,.9);border:1px solid #d0cbc0;border-radius:50%;width:32px;height:32px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#1a1a1a;line-height:1;font-family:sans-serif;z-index:10;}
 #etym-close:hover{background:#f5f2ec;}
 #etym-body{padding:20px 24px 28px;}
@@ -131,6 +131,16 @@ body{font-family:Georgia,serif;background:#f5f2ec;color:#1a1a1a;display:flex;min
 .etym-chip{font-size:12px;padding:4px 12px;border-radius:99px;border:1px solid #d0cbc0;color:#1a3bbf;background:transparent;cursor:pointer;font-family:sans-serif;transition:all .15s;}
 .etym-chip:hover{background:#1a3bbf;color:#fff;border-color:#1a3bbf;}
 .etym-chip-hint{font-size:10px;color:#bbb;font-family:sans-serif;margin-top:6px;}
+/* Cognate tree */
+.cognate-tree{margin-top:8px;}
+.cognate-lang-group{margin-bottom:12px;}
+.cognate-lang{font-size:10px;color:#aaa;font-family:sans-serif;letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px;padding-left:2px;}
+.cognate-words{display:flex;flex-wrap:wrap;gap:5px;}
+.cognate-word{font-size:12px;padding:3px 11px;border-radius:99px;border:1px solid #d0cbc0;color:#1a3bbf;background:transparent;cursor:pointer;font-family:sans-serif;transition:all .15s;position:relative;}
+.cognate-word:hover{background:#1a3bbf;color:#fff;border-color:#1a3bbf;}
+.cognate-word .cog-gloss{display:none;position:absolute;bottom:calc(100% + 5px);left:50%;transform:translateX(-50%);background:#1a1a1a;color:#fff;font-size:10px;padding:3px 8px;border-radius:4px;white-space:nowrap;pointer-events:none;z-index:10;}
+.cognate-word:hover .cog-gloss{display:block;}
+.cog-search-note{font-size:10px;color:#bbb;font-family:sans-serif;margin-top:8px;font-style:italic;}
 </style>
 </head>
 <body>
@@ -651,17 +661,55 @@ function renderEtymContent(etym, word) {
   const contentEl = document.getElementById('etym-content');
   if (!contentEl) return;
   if (etym.partOfSpeech) posEl.textContent = etym.partOfSpeech;
+
   let html = '';
+
   if (etym.origin) html += '<div class="etym-section"><div class="etym-label">Origin</div><div class="etym-text">' + esc(etym.origin) + '</div></div>';
   if (etym.meaning) html += '<div class="etym-section"><div class="etym-label">Root meaning</div><div class="etym-text">' + esc(etym.meaning) + '</div></div>';
-  if (etym.roots && etym.roots.length) html += '<div class="etym-section"><div class="etym-label">Root forms</div><div class="etym-text">' + etym.roots.map(function(r){return esc(r);}).join(' &middot; ') + '</div></div>';
-  if (etym.related && etym.related.length) {
-    html += '<div class="etym-section"><div class="etym-label">Related words — click to search</div>'
-      + '<div class="etym-chips">' + etym.related.map(function(w){return '<button class="etym-chip" data-word="' + esc(w) + '">' + esc(w) + '</button>';}).join('') + '</div>'
-      + '<div class="etym-chip-hint">Each word opens a new gallery of artworks</div></div>';
+
+  // Cognate tree — grouped by language, each word clickable
+  if (etym.cognates && Object.keys(etym.cognates).length) {
+    html += '<div class="etym-section"><div class="etym-label">Cognate tree — click any word to search art</div><div class="cognate-tree">';
+    Object.entries(etym.cognates).forEach(function(entry) {
+      const lang = entry[0], words = entry[1];
+      if (!words.length) return;
+      html += '<div class="cognate-lang-group"><div class="cognate-lang">' + esc(lang) + '</div><div class="cognate-words">';
+      words.forEach(function(cog) {
+        html += '<button class="cognate-word" data-word="' + esc(cog.word) + '">'
+          + esc(cog.word)
+          + (cog.gloss ? '<span class="cog-gloss">' + esc(cog.gloss) + '</span>' : '')
+          + '</button>';
+      });
+      html += '</div></div>';
+    });
+    html += '</div><div class="cog-search-note">Hover a word to see its meaning · click to open an art gallery for that word</div></div>';
   }
+
+  // Related / derived terms as chips (separate from cognates)
+  if (etym.related && etym.related.length) {
+    html += '<div class="etym-section"><div class="etym-label">Derived &amp; related terms</div>'
+      + '<div class="etym-chips">' + etym.related.map(function(w){ return '<button class="etym-chip" data-word="' + esc(w) + '">' + esc(w) + '</button>'; }).join('') + '</div></div>';
+  }
+
   if (!html) html = '<div class="etym-text" style="color:#bbb;font-style:italic">No detailed etymology found.</div>';
   contentEl.innerHTML = html;
+
+  // Wire up cognate word buttons
+  contentEl.querySelectorAll('.cognate-word').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      const w = btn.dataset.word;
+      if (!w) return;
+      etymOverlay.classList.remove('open');
+      WI.value = w;
+      wordError.textContent = '';
+      currentSearchWord = w;
+      heartMap.clear();
+      heartBtns.clear();
+      search(w);
+    });
+  });
+
+  // Wire up related chips
   contentEl.querySelectorAll('.etym-chip').forEach(function(chip) {
     chip.addEventListener('click', function() {
       const w = chip.dataset.word;
@@ -676,95 +724,136 @@ function renderEtymContent(etym, word) {
   });
 }
 
-// Fetch etymology from Wiktionary (free, no key, CORS-enabled)
-// Strategy: parse the wikitext of the English entry for etymology section + related terms
+// ============================================================
+// WIKTIONARY ETYMOLOGY + COGNATE FETCH
+// ============================================================
+
+const LANG_CODES = {
+  'la':'Latin','grc':'Ancient Greek','ang':'Old English','fro':'Old French',
+  'gem':'Proto-Germanic','non':'Old Norse','de':'German','fr':'French',
+  'it':'Italian','es':'Spanish','ar':'Arabic','sa':'Sanskrit','zh':'Chinese',
+  'ja':'Japanese','got':'Gothic','ine':'Proto-Indo-European','nl':'Dutch',
+  'pt':'Portuguese','ru':'Russian','pl':'Polish','cs':'Czech','sv':'Swedish',
+  'da':'Danish','no':'Norwegian','fi':'Finnish','hu':'Hungarian','ro':'Romanian',
+  'ca':'Catalan','oc':'Occitan','af':'Afrikaans','cy':'Welsh','ga':'Irish',
+  'gd':'Scottish Gaelic','is':'Icelandic','lt':'Lithuanian','lv':'Latvian',
+  'el':'Greek','fa':'Persian','hi':'Hindi','bn':'Bengali','ta':'Tamil',
+  'ko':'Korean','vi':'Vietnamese','tr':'Turkish','he':'Hebrew','yi':'Yiddish',
+  'enm':'Middle English','gmh':'Middle High German','goh':'Old High German',
+  'pro':'Old Provençal','VL.':'Vulgar Latin','LL.':'Late Latin',
+  'ML.':'Medieval Latin','NL.':'New Latin'
+};
+
 async function fetchEtymology(word) {
   const base = 'https://en.wiktionary.org/w/api.php';
-  const params = '?action=parse&page=' + encodeURIComponent(word)
-    + '&prop=wikitext&format=json&origin=*';
+  const params = '?action=parse&page=' + encodeURIComponent(word) + '&prop=wikitext&format=json&origin=*';
   const resp = await fetch(base + params);
   if (!resp.ok) throw new Error('Wiktionary unavailable');
   const data = await resp.json();
   if (data.error || !data.parse) throw new Error('Word not found');
-  const wikitext = data.parse.wikitext['*'] || '';
-  return parseWikitext(wikitext, word);
+  return parseWikitext(data.parse.wikitext['*'] || '', word);
 }
 
 function parseWikitext(wikitext, word) {
-  // Strip template markup down to readable text
+  function resolveCode(code) { return LANG_CODES[code] || code; }
+
   function stripTemplates(s) {
-    // Handle {{m|lang|word}}, {{der|en|la|word}}, {{inh|...}}, {{cog|...}} etc — extract last meaningful arg
     s = s.replace(/\{\{(?:m|l|der|inh|bor|cog|etyl|mention|link)\|[^|{}]*\|[^|{}]*\|([^|{}=]+)[^{}]*\}\}/gi, '$1');
-    // {{m|lang|word}} with only 2 args
     s = s.replace(/\{\{(?:m|l)\|[^|{}]*\|([^|{}=]+)\}\}/gi, '$1');
-    // Remaining templates — strip entirely
     s = s.replace(/\{\{[^{}]*\}\}/g, '');
-    // Wikilinks [[word|display]] and [[word]]
     s = s.replace(/\[\[(?:[^\]|]+\|)?([^\]]+)\]\]/g, '$1');
-    // Bold/italic markup
     s = s.replace(/'''?/g, '');
-    // Clean up leftover punctuation
-    s = s.replace(/\s+/g, ' ').trim();
-    return s;
+    return s.replace(/\s+/g, ' ').trim();
   }
 
-  // Extract the ==English== section only
+  // Isolate English section
   const englishMatch = wikitext.match(/==English==\s*([\s\S]*?)(?:\n==[^=]|$)/);
   const englishText = englishMatch ? englishMatch[1] : wikitext;
 
-  // Part of speech — first ===Noun===, ===Verb=== etc
+  // Part of speech
   let partOfSpeech = '';
   const posMatch = englishText.match(/===\s*(Noun|Verb|Adjective|Adverb|Pronoun|Preposition|Conjunction|Interjection|Determiner)\s*===/i);
   if (posMatch) partOfSpeech = posMatch[1].toLowerCase();
 
-  // Etymology section
+  // Etymology section raw
   let origin = '';
-  let roots = [];
   const etymMatch = englishText.match(/===?\s*Etymology\s*[12]?\s*===?\s*\n([\s\S]*?)(?:\n===|$)/i);
-  if (etymMatch) {
-    const raw = etymMatch[1];
-    // Extract root language mentions for the roots array
-    const rootMatches = [...raw.matchAll(/\{\{(?:der|inh|bor|etyl)[^}]+\|([a-z\-]+)\}\}/gi)];
-    const langCodes = { la:'Latin', grc:'Ancient Greek', ang:'Old English', fro:'Old French',
-      gem:'Germanic', non:'Old Norse', de:'German', fr:'French', it:'Italian',
-      es:'Spanish', ar:'Arabic', sa:'Sanskrit', zh:'Chinese', ja:'Japanese',
-      got:'Gothic', ine:'Proto-Indo-European', osp:'Old Spanish', nl:'Dutch' };
-    roots = [...new Set(rootMatches.map(m => langCodes[m[1]] || m[1]))].slice(0,4);
-
-    const cleaned = stripTemplates(raw).split('\n').filter(l => l.trim()).join(' ');
-    origin = cleaned.substring(0, 320);
-    if (cleaned.length > 320) origin += '…';
+  const etymRaw = etymMatch ? etymMatch[1] : '';
+  if (etymRaw) {
+    const cleaned = stripTemplates(etymRaw).split('\n').filter(function(l){return l.trim();}).join(' ');
+    origin = cleaned.substring(0, 380);
+    if (cleaned.length > 380) origin += '…';
   }
 
-  // First definition as "meaning"
-  let meaning = '';
-  const defMatch = englishText.match(/^#\s*([^#\n*:].+)/m);
-  if (defMatch) meaning = stripTemplates(defMatch[1]).substring(0, 180);
+  // ── COGNATE EXTRACTION ──
+  // Wiktionary encodes cognates as {{cog|lang|word|gloss=meaning}} or {{cog|lang|word|t=meaning}}
+  // Also picks up {{der|en|lang|word}}, {{inh|en|lang|word}}, {{bor|en|lang|word}} as ancestry
+  const cognates = {}; // lang → [{word, gloss}]
 
-  // Related / derived terms
-  let related = [];
-  const relSection = englishText.match(/===?\s*(?:Related terms|Derived terms|Synonyms)\s*===?\s*\n([\s\S]*?)(?:\n===|$)/i);
-  if (relSection) {
-    const words = [...relSection[1].matchAll(/\[\[([a-z][a-z\s\-']+)\]\]/gi)]
-      .map(m => m[1].trim())
-      .filter(w => w !== word && w.length > 2 && w.length < 20 && !/\s{2}/.test(w));
-    related = [...new Set(words)].slice(0, 8);
+  // 1. Explicit {{cog|...}} cognates
+  const cogRegex = /\{\{cog\|([a-z\-]+)\|([^|{}=\n]+?)(?:\|(?:gloss|t)=([^|}]+))?\}\}/gi;
+  let m;
+  while ((m = cogRegex.exec(etymRaw)) !== null) {
+    const lang = resolveCode(m[1]);
+    const w = m[2].trim();
+    const gloss = m[3] ? m[3].trim() : '';
+    if (!w || w.length > 30) continue;
+    if (!cognates[lang]) cognates[lang] = [];
+    if (!cognates[lang].some(function(c){return c.word===w;})) cognates[lang].push({word:w, gloss});
   }
 
-  // If no related found, try "See also"
-  if (!related.length) {
-    const seeAlso = englishText.match(/===?\s*See also\s*===?\s*\n([\s\S]*?)(?:\n===|$)/i);
-    if (seeAlso) {
-      const words = [...seeAlso[1].matchAll(/\[\[([a-z][a-z\s\-']+)\]\]/gi)]
-        .map(m => m[1].trim())
-        .filter(w => w !== word && w.length > 2 && w.length < 20);
-      related = [...new Set(words)].slice(0, 8);
+  // 2. Ancestry: {{inh|en|lang|word}}, {{der|en|lang|word}}, {{bor|en|lang|word}}
+  const ancRegex = /\{\{(?:inh|der|bor)\|en\|([a-z\-]+)\|([^|{}=\n]+?)(?:\|(?:gloss|t)=([^|}]+))?\}\}/gi;
+  while ((m = ancRegex.exec(etymRaw)) !== null) {
+    const lang = resolveCode(m[1]);
+    const w = m[2].trim();
+    if (!w || w === 'en' || w.length > 30) continue;
+    const gloss = m[3] ? m[3].trim() : '';
+    if (!cognates[lang]) cognates[lang] = [];
+    if (!cognates[lang].some(function(c){return c.word===w;})) cognates[lang].push({word:w, gloss});
+  }
+
+  // 3. Also scan the full Descendants / Cognates section if present
+  const cogSectionMatch = englishText.match(/===?\s*(?:Cognates?|Descendants?|Related terms)\s*===?\s*\n([\s\S]*?)(?:\n===|$)/i);
+  if (cogSectionMatch) {
+    const cogRegex2 = /\{\{(?:cog|l|m)\|([a-z\-]+)\|([^|{}=\n]+?)(?:\|(?:gloss|t)=([^|}]+))?\}\}/gi;
+    while ((m = cogRegex2.exec(cogSectionMatch[1])) !== null) {
+      const lang = resolveCode(m[1]);
+      if (lang === 'English' || lang === 'en') continue;
+      const w = m[2].trim();
+      if (!w || w.length > 30) continue;
+      const gloss = m[3] ? m[3].trim() : '';
+      if (!cognates[lang]) cognates[lang] = [];
+      if (!cognates[lang].some(function(c){return c.word===w;})) cognates[lang].push({word:w, gloss});
     }
   }
 
-  if (!origin && !meaning && !related.length) throw new Error('No etymology data found');
+  // First definition
+  let meaning = '';
+  const defMatch = englishText.match(/^#\s*([^#\n*:].+)/m);
+  if (defMatch) meaning = stripTemplates(defMatch[1]).substring(0, 200);
 
-  return { partOfSpeech, origin, meaning, roots, related };
+  // Related / derived terms (English words only — for chips)
+  let related = [];
+  const relSection = englishText.match(/===?\s*(?:Related terms|Derived terms|Synonyms)\s*===?\s*\n([\s\S]*?)(?:\n===|$)/i);
+  if (relSection) {
+    related = [...relSection[1].matchAll(/\[\[([a-z][a-z\s\-']+)\]\]/gi)]
+      .map(function(mx){return mx[1].trim();})
+      .filter(function(w){return w !== word && w.length > 2 && w.length < 20;});
+    related = [...new Set(related)].slice(0, 8);
+  }
+  if (!related.length) {
+    const seeAlso = englishText.match(/===?\s*See also\s*===?\s*\n([\s\S]*?)(?:\n===|$)/i);
+    if (seeAlso) {
+      related = [...seeAlso[1].matchAll(/\[\[([a-z][a-z\s\-']+)\]\]/gi)]
+        .map(function(mx){return mx[1].trim();})
+        .filter(function(w){return w !== word && w.length > 2 && w.length < 20;});
+      related = [...new Set(related)].slice(0, 8);
+    }
+  }
+
+  if (!origin && !meaning && !Object.keys(cognates).length && !related.length) throw new Error('No data');
+  return { partOfSpeech, origin, meaning, cognates, related };
 }
 
 // ============================================================
