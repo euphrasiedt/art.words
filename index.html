@@ -309,7 +309,11 @@ function saveCollections(cols) {
 }
 
 function artId(art) {
-  return btoa(encodeURIComponent(art.url || art.title || art.image)).slice(0, 24);
+  // Simple djb2 hash — no btoa/encodeURIComponent, never throws
+  const str = art.url || art.title || art.image || '';
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) h = (h * 33) ^ str.charCodeAt(i);
+  return (h >>> 0).toString(36);
 }
 
 function isArtSavedAnywhere(art) {
@@ -448,26 +452,28 @@ const popover = document.getElementById('save-popover');
 let popoverArt = null;
 let popoverFromModal = false;
 
-function showSavePopover(btn, art) {
-  popoverArt = art;
+function renderPopoverList(art) {
   const cols = loadCollections();
   const keys = Object.keys(cols);
   const list = document.getElementById('save-popover-list');
-
   if (!keys.length) {
     list.innerHTML = '<div class="save-popover-item" style="color:#bbb;cursor:default">No collections yet</div>';
   } else {
     list.innerHTML = keys.map(id => {
       const inCol = isArtInCollection(id, art);
-      return `<div class="save-popover-item ${inCol ? 'saved-in' : ''}" onclick="toggleArtworkInCollection('${id}', popoverArt); updatePopover();">
+      return `<div class="save-popover-item ${inCol ? 'saved-in' : ''}" data-colid="${id}">
         <span class="item-icon">🗂</span>
         <span>${escHtml(cols[id].name)}</span>
         ${inCol ? '<span class="item-check">✓</span>' : ''}
       </div>`;
     }).join('');
   }
+}
 
-  // Position near button
+function showSavePopover(btn, art) {
+  popoverArt = art;
+  renderPopoverList(art);
+
   const rect = btn.getBoundingClientRect();
   popover.style.top = (rect.bottom + 6 + window.scrollY) + 'px';
   let left = rect.left + window.scrollX - 80;
@@ -479,18 +485,7 @@ function showSavePopover(btn, art) {
 
 function updatePopover() {
   if (!popoverArt) return;
-  const cols = loadCollections();
-  const list = document.getElementById('save-popover-list');
-  const keys = Object.keys(cols);
-  if (!keys.length) return;
-  list.innerHTML = keys.map(id => {
-    const inCol = isArtInCollection(id, popoverArt);
-    return `<div class="save-popover-item ${inCol ? 'saved-in' : ''}" onclick="toggleArtworkInCollection('${id}', popoverArt); updatePopover();">
-      <span class="item-icon">🗂</span>
-      <span>${escHtml(cols[id].name)}</span>
-      ${inCol ? '<span class="item-check">✓</span>' : ''}
-    </div>`;
-  }).join('');
+  renderPopoverList(popoverArt);
 }
 
 function closePopover() {
@@ -498,6 +493,16 @@ function closePopover() {
   popoverArt = null;
 }
 
+// Delegated click on popover list items (data-colid attribute)
+document.getElementById('save-popover-list').addEventListener('click', e => {
+  const item = e.target.closest('[data-colid]');
+  if (!item || !popoverArt) return;
+  e.stopPropagation();
+  toggleArtworkInCollection(item.dataset.colid, popoverArt);
+  updatePopover();
+});
+
+// Close popover on outside click
 document.addEventListener('click', e => {
   if (!popover.contains(e.target) && !e.target.classList.contains('heart-btn')) {
     closePopover();
