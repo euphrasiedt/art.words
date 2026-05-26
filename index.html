@@ -3,19 +3,16 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Word → Art</title>
+<title>Word to Art</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:Georgia,serif;background:#f5f2ec;color:#1a1a1a;display:flex;min-height:100vh;}
-
-/* ── SIDEBAR ── */
 #sidebar{width:250px;min-width:250px;background:#eeeae1;border-right:1px solid #d8d3c8;display:flex;flex-direction:column;height:100vh;position:sticky;top:0;overflow:hidden;}
 #sidebar-header{padding:20px 16px 14px;border-bottom:1px solid #d8d3c8;flex-shrink:0;}
 #sidebar-header .logo{font-size:1.3rem;color:#1a3bbf;letter-spacing:.04em;}
 #sidebar-header p{font-size:11px;color:#888;font-family:sans-serif;margin-top:4px;}
-
 #map-section{padding:14px 12px;flex-shrink:0;}
-#map-section h3,#collections-section h3{font-size:10px;color:#aaa;font-family:sans-serif;font-weight:400;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;}
+#map-section h3{font-size:10px;color:#aaa;font-family:sans-serif;font-weight:400;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;}
 #world-map{width:100%;cursor:pointer;}
 #world-map path{fill:#d8d3c8;stroke:#c4bfb4;stroke-width:.4;transition:fill .15s;}
 #world-map path:hover{fill:#b8c8f0;}
@@ -25,17 +22,13 @@ body{font-family:Georgia,serif;background:#f5f2ec;color:#1a1a1a;display:flex;min
 #clear-btn{display:none;width:100%;margin-top:10px;padding:7px;background:none;border:1px solid #c4bfb4;border-radius:6px;color:#888;font-size:12px;font-family:sans-serif;cursor:pointer;transition:all .15s;}
 #clear-btn:hover{border-color:#1a3bbf;color:#1a3bbf;}
 #clear-btn.visible{display:block;}
-
-/* ── COLLECTIONS SIDEBAR PANEL ── */
 #collections-section{flex:1;display:flex;flex-direction:column;min-height:0;border-top:1px solid #d8d3c8;padding:14px 12px 12px;}
 #collections-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
-#collections-header h3{margin-bottom:0;}
+#collections-header h3{font-size:10px;color:#aaa;font-family:sans-serif;font-weight:400;letter-spacing:.08em;text-transform:uppercase;}
 #new-folder-btn{background:none;border:none;color:#1a3bbf;font-size:18px;cursor:pointer;line-height:1;padding:0 2px;opacity:.7;transition:opacity .15s;}
 #new-folder-btn:hover{opacity:1;}
 #collections-list{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:4px;}
-.collection-empty{font-size:11px;color:#bbb;font-family:sans-serif;text-align:center;padding:16px 0;line-height:1.6;}
-
-/* folder row */
+.collection-empty{font-size:11px;color:#bbb;font-family:sans-serif;text-align:center;padding:16px 0;line-height:1.7;}
 .folder{border-radius:7px;overflow:hidden;border:1px solid #d8d3c8;background:#fff;}
 .folder-header{display:flex;align-items:center;gap:6px;padding:7px 8px;cursor:pointer;user-select:none;transition:background .12s;}
 .folder-header:hover{background:#f5f2ec;}
@@ -48,8 +41,6 @@ body{font-family:Georgia,serif;background:#f5f2ec;color:#1a1a1a;display:flex;min
 .folder-header:hover .folder-actions{opacity:1;}
 .folder-action-btn{background:none;border:none;cursor:pointer;font-size:11px;color:#bbb;padding:1px 3px;border-radius:3px;transition:color .12s;}
 .folder-action-btn:hover{color:#c0392b;}
-
-/* folder contents */
 .folder-contents{display:none;padding:6px 8px 8px;border-top:1px solid #ede9e0;background:#faf8f4;}
 .folder.open .folder-contents{display:block;}
 .folder-artworks{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;}
@@ -59,15 +50,11 @@ body{font-family:Georgia,serif;background:#f5f2ec;color:#1a1a1a;display:flex;min
 .saved-thumb-remove{position:absolute;top:2px;right:2px;background:rgba(0,0,0,.55);border:none;border-radius:50%;width:16px;height:16px;font-size:9px;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .12s;}
 .saved-thumb:hover .saved-thumb-remove{opacity:1;}
 .folder-empty-msg{font-size:10px;color:#bbb;font-family:sans-serif;text-align:center;padding:8px 0;}
-
-/* ── HEART BUTTON ON CARDS ── */
 .card{position:relative;}
 .heart-btn{position:absolute;top:8px;right:8px;background:rgba(255,255,255,.88);border:none;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px;opacity:0;transition:opacity .15s,transform .15s;box-shadow:0 1px 4px rgba(0,0,0,.15);z-index:2;}
 .card:hover .heart-btn{opacity:1;}
 .heart-btn.saved{opacity:1;color:#e74c3c;}
 .heart-btn:hover{transform:scale(1.15);}
-
-/* ── SAVE POPOVER ── */
 #save-popover{position:fixed;background:#fff;border:1px solid #d8d3c8;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.13);width:200px;z-index:1000;overflow:hidden;display:none;font-family:sans-serif;}
 #save-popover.visible{display:block;}
 #save-popover-title{font-size:10px;color:#aaa;letter-spacing:.07em;text-transform:uppercase;padding:10px 12px 6px;}
@@ -75,13 +62,11 @@ body{font-family:Georgia,serif;background:#f5f2ec;color:#1a1a1a;display:flex;min
 .save-popover-item{display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;transition:background .1s;font-size:12px;color:#333;}
 .save-popover-item:hover{background:#f5f2ec;}
 .save-popover-item.saved-in{color:#1a3bbf;font-weight:500;}
-.save-popover-item .item-icon{font-size:13px;flex-shrink:0;}
-.save-popover-item .item-check{margin-left:auto;font-size:11px;color:#1a3bbf;}
+.item-icon{font-size:13px;flex-shrink:0;}
+.item-check{margin-left:auto;font-size:11px;color:#1a3bbf;}
 #save-popover-divider{height:1px;background:#ede9e0;margin:2px 0;}
 #save-popover-new{display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;font-size:12px;color:#1a3bbf;transition:background .1s;}
 #save-popover-new:hover{background:#eef1fc;}
-
-/* ── NEW FOLDER MODAL ── */
 #folder-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:2000;display:none;align-items:center;justify-content:center;}
 #folder-modal-overlay.visible{display:flex;}
 #folder-modal{background:#fff;border-radius:12px;padding:24px;width:280px;box-shadow:0 8px 32px rgba(0,0,0,.18);}
@@ -92,8 +77,6 @@ body{font-family:Georgia,serif;background:#f5f2ec;color:#1a1a1a;display:flex;min
 .modal-btn{padding:8px 16px;border-radius:7px;font-size:12px;font-family:sans-serif;cursor:pointer;border:none;transition:background .15s;}
 .modal-btn.cancel{background:#f0ede6;color:#888;}.modal-btn.cancel:hover{background:#e5e1d8;}
 .modal-btn.confirm{background:#1a3bbf;color:#fff;}.modal-btn.confirm:hover{background:#1530a0;}
-
-/* ── MAIN ── */
 #main{flex:1;display:flex;flex-direction:column;min-width:0;}
 .top-bar{padding:40px 28px 0;text-align:center;}
 .wordmark{font-size:2.4rem;color:#1a3bbf;letter-spacing:.04em;}
@@ -130,21 +113,19 @@ body{font-family:Georgia,serif;background:#f5f2ec;color:#1a1a1a;display:flex;min
 
 <div id="sidebar">
   <div id="sidebar-header">
-    <div class="logo">word → art</div>
+    <div class="logo">word to art</div>
     <p>Click a country to filter by culture</p>
   </div>
-
   <div id="map-section">
     <h3>World map</h3>
     <svg id="world-map" viewBox="0 0 800 450" xmlns="http://www.w3.org/2000/svg"></svg>
     <div id="hover-name">Hover a country</div>
-    <button id="clear-btn" onclick="clearFilter()">✕ Clear country filter</button>
+    <button id="clear-btn" onclick="clearFilter()">x Clear country filter</button>
   </div>
-
   <div id="collections-section">
     <div id="collections-header">
       <h3>My collections</h3>
-      <button id="new-folder-btn" title="New collection" onclick="openFolderModal()">＋</button>
+      <button id="new-folder-btn" title="New collection">+</button>
     </div>
     <div id="collections-list"></div>
   </div>
@@ -152,10 +133,10 @@ body{font-family:Georgia,serif;background:#f5f2ec;color:#1a1a1a;display:flex;min
 
 <div id="main">
   <div class="top-bar">
-    <div class="wordmark">word → art</div>
+    <div class="wordmark">word to art</div>
     <p class="subtitle">Enter a word. See how cultures across history visualized it.</p>
     <div class="search-row">
-      <input type="text" id="wordInput" placeholder="lion, grief, harvest, fire…"/>
+      <input type="text" id="wordInput" placeholder="lion, grief, harvest, fire..."/>
       <button id="searchBtn">Explore</button>
     </div>
     <div class="chips">
@@ -174,24 +155,20 @@ body{font-family:Georgia,serif;background:#f5f2ec;color:#1a1a1a;display:flex;min
   <div id="gallery"></div>
 </div>
 
-<!-- Save-to-collection popover -->
 <div id="save-popover">
   <div id="save-popover-title">Save to collection</div>
   <div id="save-popover-list"></div>
   <div id="save-popover-divider"></div>
-  <div id="save-popover-new" onclick="openFolderModalFromPopover()">
-    <span class="item-icon">＋</span> New collection
-  </div>
+  <div id="save-popover-new">+ New collection</div>
 </div>
 
-<!-- New folder modal -->
-<div id="folder-modal-overlay" onclick="closeFolderModal(event)">
+<div id="folder-modal-overlay">
   <div id="folder-modal">
     <h4>New collection</h4>
-    <input type="text" id="folder-name-input" placeholder="e.g. Favourites, Japanese Art…" maxlength="40"/>
+    <input type="text" id="folder-name-input" placeholder="e.g. Favourites, Japanese Art..." maxlength="40"/>
     <div id="folder-modal-actions">
-      <button class="modal-btn cancel" onclick="closeFolderModal()">Cancel</button>
-      <button class="modal-btn confirm" onclick="confirmNewFolder()">Create</button>
+      <button class="modal-btn cancel" id="modal-cancel-btn">Cancel</button>
+      <button class="modal-btn confirm" id="modal-confirm-btn">Create</button>
     </div>
   </div>
 </div>
@@ -209,7 +186,6 @@ const SB = document.getElementById('source-bar');
 let activeLabel = null;
 let activeTerm = null;
 
-// ── COUNTRY DATA ──────────────────────────────────────────────────────────────
 const CN = {
   4:'Afghanistan',8:'Albania',12:'Algeria',24:'Angola',32:'Argentina',36:'Australia',
   40:'Austria',50:'Bangladesh',56:'Belgium',64:'Bhutan',68:'Bolivia',76:'Brazil',
@@ -255,7 +231,6 @@ const CT = {
   'Sri Lanka':'Buddhist Sri Lankan',
 };
 
-// ── MAP ───────────────────────────────────────────────────────────────────────
 function applyFilter(label, term) {
   activeLabel = label; activeTerm = term;
   HN.textContent = label; HN.classList.add('has-filter');
@@ -281,7 +256,7 @@ d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json').then(w
     .on('mouseenter', function(event, d) {
       const name = CN[+d.id];
       if (!this.classList.contains('selected')) this.style.fill = CT[name] ? '#b8c8f0' : '#ccc';
-      if (name) { HN.textContent = CT[name] ? name : `${name} (no filter)`; HN.classList.toggle('has-filter', !!activeLabel); }
+      if (name) { HN.textContent = CT[name] ? name : name + ' (no filter)'; HN.classList.toggle('has-filter', !!activeLabel); }
     })
     .on('mouseleave', function(event, d) {
       if (!this.classList.contains('selected')) this.style.fill = '';
@@ -296,184 +271,178 @@ d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json').then(w
     .append('title').text(d => CN[+d.id] || '');
 });
 
-// ── COLLECTIONS STATE ─────────────────────────────────────────────────────────
-const STORAGE_KEY = 'word_art_collections';
+// ============================================================
+// COLLECTIONS
+// ============================================================
 
-function loadCollections() {
+const STORAGE_KEY = 'word_art_collections_v2';
+
+function loadCols() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; }
   catch { return {}; }
 }
 
-function saveCollections(cols) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(cols));
+function saveCols(c) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(c));
 }
 
 function artId(art) {
-  // Simple djb2 hash — no btoa/encodeURIComponent, never throws
-  const str = art.url || art.title || art.image || '';
+  const str = (art.url || art.title || art.image || '');
   let h = 5381;
-  for (let i = 0; i < str.length; i++) h = (h * 33) ^ str.charCodeAt(i);
+  for (let i = 0; i < str.length; i++) h = ((h << 5) + h) ^ str.charCodeAt(i);
   return (h >>> 0).toString(36);
 }
 
-function isArtSavedAnywhere(art) {
-  const cols = loadCollections();
+function isSaved(art) {
   const id = artId(art);
-  return Object.values(cols).some(c => c.artworks.some(a => a.id === id));
+  return Object.values(loadCols()).some(c => c.artworks.some(a => a.id === id));
 }
 
-function isArtInCollection(colId, art) {
-  const cols = loadCollections();
+function isInCol(colId, art) {
+  const cols = loadCols();
   if (!cols[colId]) return false;
   const id = artId(art);
   return cols[colId].artworks.some(a => a.id === id);
 }
 
-function createCollection(name) {
-  const cols = loadCollections();
-  const id = 'col_' + Date.now();
-  cols[id] = { name, artworks: [], open: true };
-  saveCollections(cols);
-  renderCollections();
+function createCol(name) {
+  const cols = loadCols();
+  const id = 'c' + Date.now();
+  cols[id] = { name: name, artworks: [], open: true };
+  saveCols(cols);
+  renderCols();
   return id;
 }
 
-function deleteCollection(colId) {
-  const cols = loadCollections();
+function deleteCol(colId) {
+  const cols = loadCols();
   delete cols[colId];
-  saveCollections(cols);
-  renderCollections();
+  saveCols(cols);
+  renderCols();
   refreshHearts();
 }
 
-function renameCollection(colId) {
-  const cols = loadCollections();
+function renameCol(colId) {
+  const cols = loadCols();
   if (!cols[colId]) return;
-  const newName = prompt('Rename collection:', cols[colId].name);
-  if (newName && newName.trim()) {
-    cols[colId].name = newName.trim().slice(0, 40);
-    saveCollections(cols);
-    renderCollections();
-  }
+  const n = prompt('Rename collection:', cols[colId].name);
+  if (n && n.trim()) { cols[colId].name = n.trim().slice(0,40); saveCols(cols); renderCols(); }
 }
 
-function toggleArtworkInCollection(colId, art) {
-  const cols = loadCollections();
+function toggleInCol(colId, art) {
+  const cols = loadCols();
   if (!cols[colId]) return;
   const id = artId(art);
   const idx = cols[colId].artworks.findIndex(a => a.id === id);
   if (idx > -1) {
     cols[colId].artworks.splice(idx, 1);
   } else {
-    cols[colId].artworks.unshift({ id, title: art.title, image: art.image, url: art.url, source: art.source });
+    cols[colId].artworks.unshift({ id: id, title: art.title, image: art.image, url: art.url, source: art.source });
   }
-  saveCollections(cols);
-  renderCollections();
+  saveCols(cols);
+  renderCols();
   refreshHearts();
 }
 
-function removeArtworkFromCollection(colId, artworkId) {
-  const cols = loadCollections();
+function removeFromCol(colId, artworkId) {
+  const cols = loadCols();
   if (!cols[colId]) return;
   cols[colId].artworks = cols[colId].artworks.filter(a => a.id !== artworkId);
-  saveCollections(cols);
-  renderCollections();
+  saveCols(cols);
+  renderCols();
   refreshHearts();
 }
 
-function toggleFolderOpen(colId) {
-  const cols = loadCollections();
+function toggleColOpen(colId) {
+  const cols = loadCols();
   if (!cols[colId]) return;
   cols[colId].open = !cols[colId].open;
-  saveCollections(cols);
-  renderCollections();
+  saveCols(cols);
+  renderCols();
 }
 
-// ── RENDER COLLECTIONS PANEL ──────────────────────────────────────────────────
-function renderCollections() {
-  const list = document.getElementById('collections-list');
-  const cols = loadCollections();
-  const keys = Object.keys(cols);
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
 
+function renderCols() {
+  const list = document.getElementById('collections-list');
+  const cols = loadCols();
+  const keys = Object.keys(cols);
   if (!keys.length) {
-    list.innerHTML = '<div class="collection-empty">Heart artworks to save them.<br>Use ＋ to create a collection.</div>';
+    list.innerHTML = '<div class="collection-empty">Heart artworks to save them.<br>Use + to create a collection.</div>';
     return;
   }
-
-  list.innerHTML = keys.map(id => {
+  list.innerHTML = keys.map(function(id) {
     const col = cols[id];
     const count = col.artworks.length;
-    const isOpen = col.open;
-
-    const thumbsHtml = count === 0
+    const thumbs = count === 0
       ? '<div class="folder-empty-msg">No artworks yet</div>'
-      : col.artworks.map(a => `
-          <div class="saved-thumb" title="${escHtml(a.title)}" onclick="window.open('${escHtml(a.url || '')}','_blank')">
-            <img src="${escHtml(a.image)}" alt="" loading="lazy" onerror="this.style.display='none'"/>
-            <button class="saved-thumb-remove" title="Remove" onclick="event.stopPropagation();removeArtworkFromCollection('${id}','${a.id}')">✕</button>
-          </div>`).join('');
-
-    return `
-      <div class="folder ${isOpen ? 'open' : ''}" id="folder-${id}">
-        <div class="folder-header" onclick="toggleFolderOpen('${id}')">
-          <span class="folder-chevron">▶</span>
-          <span class="folder-icon">🗂</span>
-          <span class="folder-name">${escHtml(col.name)}</span>
-          <span class="folder-count">${count}</span>
-          <span class="folder-actions" onclick="event.stopPropagation()">
-            <button class="folder-action-btn" title="Rename" onclick="renameCollection('${id}')">✎</button>
-            <button class="folder-action-btn" title="Delete" onclick="deleteCollection('${id}')">✕</button>
-          </span>
-        </div>
-        <div class="folder-contents">
-          <div class="folder-artworks">${thumbsHtml}</div>
-        </div>
-      </div>`;
+      : col.artworks.map(function(a) {
+          return '<div class="saved-thumb" onclick="window.open(\'' + esc(a.url||'') + '\',\'_blank\')">'
+            + '<img src="' + esc(a.image) + '" loading="lazy" onerror="this.style.display=\'none\'">'
+            + '<button class="saved-thumb-remove" onclick="event.stopPropagation();removeFromCol(\'' + id + '\',\'' + a.id + '\')">x</button>'
+            + '</div>';
+        }).join('');
+    return '<div class="folder ' + (col.open ? 'open' : '') + '" id="fld-' + id + '">'
+      + '<div class="folder-header" onclick="toggleColOpen(\'' + id + '\')">'
+      + '<span class="folder-chevron">&#9658;</span>'
+      + '<span class="folder-icon">&#128194;</span>'
+      + '<span class="folder-name">' + esc(col.name) + '</span>'
+      + '<span class="folder-count">' + count + '</span>'
+      + '<span class="folder-actions" onclick="event.stopPropagation()">'
+      + '<button class="folder-action-btn" onclick="renameCol(\'' + id + '\')">&#9998;</button>'
+      + '<button class="folder-action-btn" onclick="deleteCol(\'' + id + '\')">&#10005;</button>'
+      + '</span></div>'
+      + '<div class="folder-contents"><div class="folder-artworks">' + thumbs + '</div></div>'
+      + '</div>';
   }).join('');
 }
 
-function escHtml(str) {
-  return String(str || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
-// Map from heart button element → art object (avoids HTML attribute serialization)
-const heartArtMap = new Map();
+// Map from button element -> art object (no serialization needed)
+const heartMap = new Map();
 
 function refreshHearts() {
-  heartArtMap.forEach((art, btn) => {
-    const saved = isArtSavedAnywhere(art);
-    btn.classList.toggle('saved', saved);
-    btn.textContent = saved ? '♥' : '♡';
+  heartMap.forEach(function(art, btn) {
+    if (!btn.isConnected) return;
+    const s = isSaved(art);
+    btn.classList.toggle('saved', s);
+    btn.textContent = s ? '\u2665' : '\u2661';
   });
 }
 
-// ── SAVE POPOVER ──────────────────────────────────────────────────────────────
-const popover = document.getElementById('save-popover');
-let popoverArt = null;
-let popoverFromModal = false;
+// ============================================================
+// POPOVER
+// ============================================================
 
-function renderPopoverList(art) {
-  const cols = loadCollections();
+const popover = document.getElementById('save-popover');
+const popoverList = document.getElementById('save-popover-list');
+
+// pendingArt: the art object currently being targeted by the popover/modal
+// NEVER cleared by closePopover — only replaced or cleared after a successful action
+let pendingArt = null;
+
+function renderPopover() {
+  if (!pendingArt) return;
+  const cols = loadCols();
   const keys = Object.keys(cols);
-  const list = document.getElementById('save-popover-list');
   if (!keys.length) {
-    list.innerHTML = '<div class="save-popover-item" style="color:#bbb;cursor:default">No collections yet</div>';
-  } else {
-    list.innerHTML = keys.map(id => {
-      const inCol = isArtInCollection(id, art);
-      return `<div class="save-popover-item ${inCol ? 'saved-in' : ''}" data-colid="${id}">
-        <span class="item-icon">🗂</span>
-        <span>${escHtml(cols[id].name)}</span>
-        ${inCol ? '<span class="item-check">✓</span>' : ''}
-      </div>`;
-    }).join('');
+    popoverList.innerHTML = '<div style="font-size:11px;color:#999;padding:8px 12px;">No collections yet</div>';
+    return;
   }
+  popoverList.innerHTML = keys.map(function(id) {
+    const inCol = isInCol(id, pendingArt);
+    return '<div class="save-popover-item' + (inCol ? ' saved-in' : '') + '" data-colid="' + id + '">'
+      + '<span class="item-icon">&#128194;</span>'
+      + '<span>' + esc(cols[id].name) + '</span>'
+      + (inCol ? '<span class="item-check">&#10003;</span>' : '')
+      + '</div>';
+  }).join('');
 }
 
-function showSavePopover(btn, art) {
-  popoverArt = art;
-  renderPopoverList(art);
-
+function showPopover(btn, art) {
+  pendingArt = art;
+  renderPopover();
   const rect = btn.getBoundingClientRect();
   popover.style.top = (rect.bottom + 6 + window.scrollY) + 'px';
   let left = rect.left + window.scrollX - 80;
@@ -483,114 +452,127 @@ function showSavePopover(btn, art) {
   popover.classList.add('visible');
 }
 
-function updatePopover() {
-  if (!popoverArt) return;
-  renderPopoverList(popoverArt);
-}
-
 function closePopover() {
   popover.classList.remove('visible');
-  popoverArt = null;
+  // DO NOT clear pendingArt — modal may need it
 }
 
-// Delegated click on popover list items (data-colid attribute)
-document.getElementById('save-popover-list').addEventListener('click', e => {
+// Clicks on collection rows inside the popover
+popoverList.addEventListener('click', function(e) {
   const item = e.target.closest('[data-colid]');
-  if (!item || !popoverArt) return;
+  if (!item) return;
   e.stopPropagation();
-  toggleArtworkInCollection(item.dataset.colid, popoverArt);
-  updatePopover();
+  toggleInCol(item.dataset.colid, pendingArt);
+  renderPopover();
 });
 
-// Close popover on outside click
-document.addEventListener('click', e => {
+// Outside click closes popover
+document.addEventListener('click', function(e) {
+  if (!popover.classList.contains('visible')) return;
   if (!popover.contains(e.target) && !e.target.classList.contains('heart-btn')) {
     closePopover();
   }
-});
+}, true); // capture phase so it fires before anything else
 
-// ── FOLDER MODAL ──────────────────────────────────────────────────────────────
+// ============================================================
+// FOLDER MODAL
+// ============================================================
+
 const modalOverlay = document.getElementById('folder-modal-overlay');
 const folderInput = document.getElementById('folder-name-input');
+let modalAutoSave = false; // whether to auto-save pendingArt into new col
 
-function openFolderModal() {
-  popoverFromModal = false;
-  folderInput.value = '';
-  modalOverlay.classList.add('visible');
-  setTimeout(() => folderInput.focus(), 50);
-}
-
-function openFolderModalFromPopover() {
-  popoverFromModal = true;
+function openModal(autoSave) {
+  modalAutoSave = !!autoSave;
   closePopover();
   folderInput.value = '';
   modalOverlay.classList.add('visible');
-  setTimeout(() => folderInput.focus(), 50);
+  setTimeout(function() { folderInput.focus(); }, 50);
 }
 
-function closeFolderModal(e) {
-  if (e && e.target !== modalOverlay) return;
+function closeModal() {
   modalOverlay.classList.remove('visible');
 }
 
-function confirmNewFolder() {
+function confirmModal() {
   const name = folderInput.value.trim();
   if (!name) { folderInput.focus(); return; }
-  const newId = createCollection(name);
-  modalOverlay.classList.remove('visible');
-  // If opened from popover while an artwork was pending, save it
-  if (popoverFromModal && popoverArt) {
-    toggleArtworkInCollection(newId, popoverArt);
+  const newId = createCol(name);
+  closeModal();
+  if (modalAutoSave && pendingArt) {
+    toggleInCol(newId, pendingArt);
   }
-  popoverFromModal = false;
+  modalAutoSave = false;
 }
 
-folderInput.addEventListener('keydown', e => { if (e.key === 'Enter') confirmNewFolder(); if (e.key === 'Escape') modalOverlay.classList.remove('visible'); });
+document.getElementById('modal-cancel-btn').addEventListener('click', closeModal);
+document.getElementById('modal-confirm-btn').addEventListener('click', confirmModal);
+modalOverlay.addEventListener('click', function(e) { if (e.target === modalOverlay) closeModal(); });
+folderInput.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') confirmModal();
+  if (e.key === 'Escape') closeModal();
+});
 
-// ── SEARCH ────────────────────────────────────────────────────────────────────
-document.getElementById('searchBtn').addEventListener('click', () => { const w = WI.value.trim(); if (w) search(w); });
-WI.addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('searchBtn').click(); });
+// Sidebar + button
+document.getElementById('new-folder-btn').addEventListener('click', function() {
+  pendingArt = null;
+  openModal(false);
+});
+
+// Popover "New collection" row
+document.getElementById('save-popover-new').addEventListener('click', function(e) {
+  e.stopPropagation();
+  openModal(true); // pendingArt is already set from showPopover
+});
+
+// ============================================================
+// SEARCH
+// ============================================================
+
+document.getElementById('searchBtn').addEventListener('click', function() { const w = WI.value.trim(); if (w) search(w); });
+WI.addEventListener('keydown', function(e) { if (e.key === 'Enter') document.getElementById('searchBtn').click(); });
 function qs(w) { WI.value = w; search(w); }
 
 const ALL_SOURCES = ['The Met','Art Inst. Chicago','Cleveland Museum','V&A','Harvard Art','Europeana','Wikimedia'];
 
 function renderSourceBar(active) {
-  SB.innerHTML = ALL_SOURCES.map(s =>
-    `<span class="src-pill ${active.has(s) ? 'active' : ''}">${s}</span>`
-  ).join('');
+  SB.innerHTML = ALL_SOURCES.map(function(s) {
+    return '<span class="src-pill ' + (active.has(s) ? 'active' : '') + '">' + s + '</span>';
+  }).join('');
 }
 
 async function search(word) {
   G.innerHTML = '<div class="loader"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
   SB.innerHTML = '';
-  const note = activeLabel ? ` — ${activeLabel}` : '';
-  ST.textContent = `Searching collections${note}…`;
-  const q = activeTerm ? `${word} ${activeTerm}` : word;
+  const note = activeLabel ? ' - ' + activeLabel : '';
+  ST.textContent = 'Searching collections' + note + '...';
+  const q = activeTerm ? word + ' ' + activeTerm : word;
 
   const results = await Promise.allSettled([
     searchMet(q), searchChicago(q), searchCleveland(q), searchVA(q),
     searchHarvard(q), searchEuropeana(q), searchWikimedia(q),
   ]);
 
-  let arts = results.filter(r => r.status === 'fulfilled').flatMap(r => r.value).filter(a => a.image);
-  arts = shuffle(arts);
-  G.innerHTML = '';
+  let arts = results.filter(function(r) { return r.status === 'fulfilled'; })
+    .flatMap(function(r) { return r.value; })
+    .filter(function(a) { return a.image; });
 
-  const sources = new Set(arts.map(a => a.source));
+  for (let i = arts.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arts[i], arts[j]] = [arts[j], arts[i]];
+  }
+
+  G.innerHTML = '';
+  const sources = new Set(arts.map(function(a) { return a.source; }));
   renderSourceBar(sources);
 
   if (!arts.length) {
     ST.textContent = '';
-    G.innerHTML = `<div class="empty">No artworks found for "<em>${word}</em>"${note}.<br>Try a different word or clear the country filter.</div>`;
+    G.innerHTML = '<div class="empty">No artworks found for <em>' + word + '</em>' + note + '.<br>Try a different word or clear the country filter.</div>';
     return;
   }
-  ST.textContent = `${arts.length} works found for "${word}"${note} · ${sources.size} collection${sources.size > 1 ? 's' : ''}`;
-  arts.forEach(a => G.appendChild(makeCard(a)));
-}
-
-function shuffle(a) {
-  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i],a[j]]=[a[j],a[i]]; }
-  return a;
+  ST.textContent = arts.length + ' works found for "' + word + '"' + note + ' - ' + sources.size + ' collection' + (sources.size > 1 ? 's' : '');
+  arts.forEach(function(a) { G.appendChild(makeCard(a)); });
 }
 
 function makeCard(art) {
@@ -600,104 +582,109 @@ function makeCard(art) {
   el.target = '_blank';
   el.rel = 'noopener noreferrer';
 
-  const saved = isArtSavedAnywhere(art);
-  el.innerHTML = `<button class="heart-btn ${saved ? 'saved' : ''}" title="Save to collection">${saved ? '♥' : '♡'}</button>
-  <img src="${art.image}" alt="" loading="lazy" onerror="this.closest('.card').remove()"/>
-  <div class="cb"><div class="ct">${art.title||'Untitled'}</div><div class="ca">${art.artist||'Unknown artist'}</div><div class="cm">${[art.date,art.culture].filter(Boolean).join(' · ')}</div><span class="cs">${art.source}</span></div>`;
+  // Build inner HTML without the heart button (we'll append it as a real element)
+  el.innerHTML = '<img src="' + (art.image||'') + '" alt="" loading="lazy" onerror="this.closest(\'.card\').remove()"/>'
+    + '<div class="cb">'
+    + '<div class="ct">' + esc(art.title||'Untitled') + '</div>'
+    + '<div class="ca">' + esc(art.artist||'Unknown artist') + '</div>'
+    + '<div class="cm">' + esc([art.date,art.culture].filter(Boolean).join(' - ')) + '</div>'
+    + '<span class="cs">' + esc(art.source) + '</span>'
+    + '</div>';
 
-  const heartBtn = el.querySelector('.heart-btn');
-  heartArtMap.set(heartBtn, art);
+  // Create heart button as a real DOM element — no serialization
+  const btn = document.createElement('button');
+  btn.className = 'heart-btn' + (isSaved(art) ? ' saved' : '');
+  btn.title = 'Save to collection';
+  btn.textContent = isSaved(art) ? '\u2665' : '\u2661';
+  heartMap.set(btn, art);
 
-  heartBtn.addEventListener('click', e => {
+  btn.addEventListener('click', function(e) {
     e.preventDefault();
     e.stopPropagation();
-    const artData = heartArtMap.get(e.currentTarget);
-    const cols = loadCollections();
+    const art = heartMap.get(btn);
+    const cols = loadCols();
     if (!Object.keys(cols).length) {
-      popoverArt = artData;
-      openFolderModalFromPopover();
+      // No collections yet — open modal to create one, then auto-save
+      pendingArt = art;
+      openModal(true);
     } else {
-      showSavePopover(e.currentTarget, artData);
+      showPopover(btn, art);
     }
   });
 
+  el.insertBefore(btn, el.firstChild);
   return el;
 }
 
-// ── MUSEUM APIS ───────────────────────────────────────────────────────────────
+// ============================================================
+// MUSEUM APIs
+// ============================================================
+
 async function searchMet(q) {
   try {
-    const s = await fetch(`https://collectionapi.metmuseum.org/public/collection/v1/search?hasImages=true&q=${encodeURIComponent(q)}`).then(r=>r.json());
+    const s = await fetch('https://collectionapi.metmuseum.org/public/collection/v1/search?hasImages=true&q=' + encodeURIComponent(q)).then(function(r){return r.json();});
     if (!s.objectIDs) return [];
-    const det = await Promise.all(s.objectIDs.slice(0,15).map(id=>fetch(`https://collectionapi.metmuseum.org/public/collection/v1/objects/${id}`).then(r=>r.json()).catch(()=>null)));
-    return det.filter(Boolean).map(o=>({title:o.title,artist:o.artistDisplayName,date:o.objectDate,culture:o.culture,image:o.primaryImageSmall,source:'The Met',url:o.objectURL})).filter(a=>a.image);
-  } catch{return[];}
+    const det = await Promise.all(s.objectIDs.slice(0,15).map(function(id){return fetch('https://collectionapi.metmuseum.org/public/collection/v1/objects/'+id).then(function(r){return r.json();}).catch(function(){return null;});}));
+    return det.filter(Boolean).map(function(o){return {title:o.title,artist:o.artistDisplayName,date:o.objectDate,culture:o.culture,image:o.primaryImageSmall,source:'The Met',url:o.objectURL};}).filter(function(a){return a.image;});
+  } catch(e){return [];}
 }
 
 async function searchChicago(q) {
   try {
-    const d = await fetch(`https://api.artic.edu/api/v1/artworks/search?q=${encodeURIComponent(q)}&limit=15&fields=id,title,artist_display,date_display,image_id,place_of_origin`).then(r=>r.json());
+    const d = await fetch('https://api.artic.edu/api/v1/artworks/search?q=' + encodeURIComponent(q) + '&limit=15&fields=id,title,artist_display,date_display,image_id,place_of_origin').then(function(r){return r.json();});
     if (!d.data) return [];
-    return d.data.map(o=>({title:o.title,artist:o.artist_display,date:o.date_display,culture:o.place_of_origin,image:o.image_id?`https://www.artic.edu/iiif/2/${o.image_id}/full/400,/0/default.jpg`:null,source:'Art Inst. Chicago',url:`https://www.artic.edu/artworks/${o.id}`})).filter(a=>a.image);
-  } catch{return[];}
+    return d.data.map(function(o){return {title:o.title,artist:o.artist_display,date:o.date_display,culture:o.place_of_origin,image:o.image_id?'https://www.artic.edu/iiif/2/'+o.image_id+'/full/400,/0/default.jpg':null,source:'Art Inst. Chicago',url:'https://www.artic.edu/artworks/'+o.id};}).filter(function(a){return a.image;});
+  } catch(e){return [];}
 }
 
 async function searchCleveland(q) {
   try {
-    const d = await fetch(`https://openaccess-api.clevelandart.org/api/artworks?q=${encodeURIComponent(q)}&has_image=1&limit=15`).then(r=>r.json());
+    const d = await fetch('https://openaccess-api.clevelandart.org/api/artworks?q=' + encodeURIComponent(q) + '&has_image=1&limit=15').then(function(r){return r.json();});
     if (!d.data) return [];
-    return d.data.map(o=>({title:o.title,artist:o.creators?.[0]?.description,date:o.creation_date,culture:o.culture?.join(', '),image:o.images?.web?.url,source:'Cleveland Museum',url:o.url})).filter(a=>a.image);
-  } catch{return[];}
+    return d.data.map(function(o){return {title:o.title,artist:o.creators&&o.creators[0]?o.creators[0].description:'',date:o.creation_date,culture:o.culture?o.culture.join(', '):'',image:o.images&&o.images.web?o.images.web.url:null,source:'Cleveland Museum',url:o.url};}).filter(function(a){return a.image;});
+  } catch(e){return [];}
 }
 
 async function searchVA(q) {
   try {
-    const d = await fetch(`https://api.vam.ac.uk/v2/objects/search?q=${encodeURIComponent(q)}&images_exist=true&page_size=15`).then(r=>r.json());
+    const d = await fetch('https://api.vam.ac.uk/v2/objects/search?q=' + encodeURIComponent(q) + '&images_exist=true&page_size=15').then(function(r){return r.json();});
     if (!d.records) return [];
-    return d.records.map(o=>({title:o.fields?.object||o.fields?.title||'Untitled',artist:o.fields?.artist||'',date:o.fields?.date_text||'',culture:o.fields?.place||'',image:o.fields?.primary_image_id?`https://framemark.vam.ac.uk/collections/${o.fields.primary_image_id}/full/400,/0/default.jpg`:null,source:'V&A',url:`https://collections.vam.ac.uk/item/${o.fields?.systemNumber||''}`})).filter(a=>a.image);
-  } catch{return[];}
+    return d.records.map(function(o){return {title:(o.fields&&o.fields.object)||'Untitled',artist:(o.fields&&o.fields.artist)||'',date:(o.fields&&o.fields.date_text)||'',culture:(o.fields&&o.fields.place)||'',image:(o.fields&&o.fields.primary_image_id)?'https://framemark.vam.ac.uk/collections/'+o.fields.primary_image_id+'/full/400,/0/default.jpg':null,source:'V&A',url:'https://collections.vam.ac.uk/item/'+(o.fields&&o.fields.systemNumber||'')};}).filter(function(a){return a.image;});
+  } catch(e){return [];}
 }
 
 async function searchHarvard(q) {
   try {
-    const d = await fetch(`/api/harvard?q=${encodeURIComponent(q)}`).then(r=>r.json());
+    const d = await fetch('/api/harvard?q=' + encodeURIComponent(q)).then(function(r){return r.json();});
     if (!d.records) return [];
-    return d.records.map(o=>({title:o.title,artist:o.people?.[0]?.displayname||'',date:o.dated||'',culture:o.culture||'',image:o.primaryimageurl,source:'Harvard Art',url:o.url})).filter(a=>a.image);
-  } catch{return[];}
+    return d.records.map(function(o){return {title:o.title,artist:o.people&&o.people[0]?o.people[0].displayname:'',date:o.dated||'',culture:o.culture||'',image:o.primaryimageurl,source:'Harvard Art',url:o.url};}).filter(function(a){return a.image;});
+  } catch(e){return [];}
 }
 
 async function searchEuropeana(q) {
   try {
-    const d = await fetch(`/api/europeana?q=${encodeURIComponent(q)}`).then(r=>r.json());
+    const d = await fetch('/api/europeana?q=' + encodeURIComponent(q)).then(function(r){return r.json();});
     if (!d.items) return [];
-    return d.items.map(o=>({title:Array.isArray(o.title)?o.title[0]:o.title||'Untitled',artist:Array.isArray(o.dcCreator)?o.dcCreator[0]:'',date:o.year?.[0]||'',culture:o.dataProvider?.[0]||'',image:o.edmPreview?.[0],source:'Europeana',url:o.guid})).filter(a=>a.image);
-  } catch{return[];}
+    return d.items.map(function(o){return {title:Array.isArray(o.title)?o.title[0]:o.title||'Untitled',artist:Array.isArray(o.dcCreator)?o.dcCreator[0]:'',date:o.year&&o.year[0]?o.year[0]:'',culture:o.dataProvider&&o.dataProvider[0]?o.dataProvider[0]:'',image:o.edmPreview&&o.edmPreview[0]?o.edmPreview[0]:null,source:'Europeana',url:o.guid};}).filter(function(a){return a.image;});
+  } catch(e){return [];}
 }
 
 async function searchWikimedia(q) {
   try {
-    const url = `https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(q + ' painting artwork')}&srnamespace=6&srlimit=30&srprop=snippet&format=json&origin=*`;
-    const d = await fetch(url).then(r => r.json());
-    if (!d.query?.search) return [];
-    return d.query.search.map(o => {
-      const title = o.title.replace(/^File:/, '').replace(/\.[^.]+$/, '');
-      const file = o.title.replace(/^File:/, '');
-      const encoded = encodeURIComponent(file).replace(/%20/g, '_').replace(/'/g, '%27');
-      return {
-        title,
-        artist: '',
-        date: '',
-        culture: '',
-        image: `https://commons.wikimedia.org/wiki/Special:FilePath/${encoded}?width=400`,
-        source: 'Wikimedia',
-        url: `https://commons.wikimedia.org/wiki/File:${encoded}`
-      };
+    const url = 'https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch=' + encodeURIComponent(q + ' painting artwork') + '&srnamespace=6&srlimit=30&srprop=snippet&format=json&origin=*';
+    const d = await fetch(url).then(function(r){return r.json();});
+    if (!d.query||!d.query.search) return [];
+    return d.query.search.map(function(o) {
+      const title = o.title.replace(/^File:/,'').replace(/\.[^.]+$/,'');
+      const file = o.title.replace(/^File:/,'');
+      const encoded = encodeURIComponent(file).replace(/%20/g,'_').replace(/'/g,'%27');
+      return {title:title,artist:'',date:'',culture:'',image:'https://commons.wikimedia.org/wiki/Special:FilePath/'+encoded+'?width=400',source:'Wikimedia',url:'https://commons.wikimedia.org/wiki/File:'+encoded};
     });
-  } catch { return []; }
+  } catch(e){return [];}
 }
 
-// ── INIT ──────────────────────────────────────────────────────────────────────
-renderCollections();
+// Init
+renderCols();
 </script>
 </body>
 </html>
